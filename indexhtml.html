@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador SDR — Modo Áudio</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0d0d0d; color: #e8e8e8;
+    min-height: 100vh; padding: 2rem 1rem;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #app { width: 100%; max-width: 660px; }
+
+  /* ── Tela de seleção ── */
+  #difficulty-screen { display: flex; flex-direction: column; gap: 1.25rem; }
+  .screen-title { font-size: 22px; font-weight: 500; color: #fff; margin-bottom: 2px; }
+  .screen-sub { font-size: 14px; color: #666; }
+
+  .diff-cards { display: flex; flex-direction: column; gap: 10px; }
+  .diff-card {
+    background: #1a1a1a; border: 1.5px solid #2a2a2a;
+    border-radius: 14px; padding: 1rem 1.25rem;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .diff-card:hover { background: #1f1f1f; border-color: #3a3a3a; }
+  .diff-card.sel-facil    { border-color: #5cb85c; background: #0a2a0a; }
+  .diff-card.sel-medio    { border-color: #f5c518; background: #2a1f00; }
+  .diff-card.sel-dificil  { border-color: #f87171; background: #2a0a0a; }
+  .diff-card.sel-aleatorio{ border-color: #a78bfa; background: #1a103a; }
+  .diff-icon { font-size: 26px; width: 40px; text-align: center; flex-shrink: 0; }
+  .diff-info { flex: 1; }
+  .diff-name { font-size: 15px; font-weight: 500; color: #fff; margin-bottom: 3px; }
+  .diff-desc { font-size: 13px; color: #888; line-height: 1.5; }
+  .diff-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
+
+  #start-btn {
+    width: 100%; padding: 14px; font-size: 15px; font-weight: 500;
+    border-radius: 10px; border: none; cursor: pointer;
+    background: #333; color: #666; font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+  }
+  #start-btn.ready { background: #5cb85c; color: #fff; }
+  #start-btn.ready:hover { background: #4cae4c; }
+
+  /* ── Sessão ── */
+  #session-screen { display: none; flex-direction: column; }
+  h2 { font-size: 20px; font-weight: 500; color: #fff; }
+  .subtitle { font-size: 13px; color: #666; margin-top: 4px; margin-bottom: 1.25rem; }
+
+  #persona-card {
+    background: #1a1a1a; border: 0.5px solid #2a2a2a;
+    border-radius: 12px; padding: 1rem 1.25rem;
+    display: flex; align-items: center; gap: 14px; margin-bottom: 1.25rem;
+  }
+  #persona-avatar {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #1a3a5c; color: #6ab3f8;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 500; font-size: 16px; flex-shrink: 0;
+  }
+  #persona-info strong { font-size: 15px; font-weight: 500; color: #fff; display: block; }
+  #persona-info span { font-size: 13px; color: #777; }
+  #difficulty-badge { margin-left: auto; font-size: 12px; padding: 4px 12px; border-radius: 20px; font-weight: 500; flex-shrink: 0; }
+
+  #chat-window {
+    background: #111; border: 0.5px solid #222; border-radius: 12px;
+    height: 300px; overflow-y: auto;
+    padding: 1rem; display: flex; flex-direction: column; gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+  .msg { display: flex; gap: 8px; align-items: flex-end; }
+  .msg.sdr { flex-direction: row-reverse; }
+  .bubble { max-width: 78%; padding: 9px 13px; font-size: 14px; line-height: 1.6; border-radius: 14px; }
+  .barbeiro .bubble { background: #1e1e1e; color: #ddd; border-bottom-left-radius: 4px; }
+  .sdr .bubble { background: #0f3460; color: #a8d4ff; border-bottom-right-radius: 4px; }
+  .msg-av { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+  .barbeiro .msg-av { background: #3a2800; color: #f5c518; }
+  .sdr .msg-av { background: #0a2a0a; color: #5cb85c; }
+  .typing { display: flex; gap: 4px; align-items: center; padding: 9px 13px; background: #1e1e1e; border-radius: 14px 14px 4px 14px; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: #555; animation: blink 1.1s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.18s; }
+  .typing span:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes blink { 0%,60%,100%{transform:translateY(0);opacity:.5} 30%{transform:translateY(-5px);opacity:1} }
+
+  #mic-area { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 1.25rem; }
+  #status-label { font-size: 13px; color: #666; min-height: 20px; text-align: center; transition: color 0.2s; }
+  #status-label.listening { color: #f87171; }
+  #status-label.speaking  { color: #6ab3f8; }
+  #status-label.thinking  { color: #f5c518; }
+
+  #mic-btn {
+    width: 88px; height: 88px; border-radius: 50%;
+    background: #1a1a1a; border: 2px solid #333;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s; user-select: none;
+    -webkit-user-select: none; touch-action: none; position: relative;
+  }
+  #mic-btn:hover:not([disabled]) { border-color: #555; background: #222; }
+  #mic-btn.active { background: #3a0a0a; border-color: #f87171; box-shadow: 0 0 0 6px rgba(248,113,113,0.15); }
+  #mic-btn.speaking-state { border-color: #6ab3f8; background: #0a1a3a; }
+  #mic-btn[disabled] { opacity: 0.35; cursor: not-allowed; }
+  #mic-icon { font-size: 32px; line-height: 1; }
+  #pulse-ring { position: absolute; inset: -8px; border-radius: 50%; border: 2px solid rgba(248,113,113,0.4); animation: pulse 1s infinite; display: none; }
+  @keyframes pulse { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(1.3);opacity:0} }
+  #mic-btn.active #pulse-ring { display: block; }
+  #mic-hint { font-size: 12px; color: #444; text-align: center; }
+  #transcript-preview { min-height: 24px; font-size: 13px; color: #888; font-style: italic; text-align: center; padding: 0 1rem; }
+
+  #actions { display: flex; gap: 8px; margin-bottom: 1rem; }
+  .act-btn { flex: 1; padding: 10px; font-size: 13px; border-radius: 8px; cursor: pointer; font-family: inherit; border: 0.5px solid; transition: background 0.15s; background: transparent; }
+  #end-btn  { color: #f87171; border-color: #4a1515; }
+  #end-btn:hover  { background: #2a0a0a; }
+  #end-btn[disabled]  { opacity: 0.3; cursor: not-allowed; }
+  #back-btn { color: #888; border-color: #2a2a2a; }
+  #back-btn:hover { background: #1a1a1a; color: #ccc; }
+
+  /* ── Scorecard ── */
+  #scorecard { display: none; background: #111; border: 0.5px solid #222; border-radius: 12px; padding: 1.5rem; margin-top: 1rem; }
+  #scorecard h3 { font-size: 16px; font-weight: 500; color: #fff; margin-bottom: 1.25rem; }
+  .score-hero { display: flex; align-items: baseline; gap: 6px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .score-hero .big { font-size: 52px; font-weight: 500; line-height: 1; }
+  .score-hero .denom { font-size: 22px; color: #555; }
+  .score-hero .verdict { font-size: 13px; color: #777; margin-left: 6px; align-self: center; }
+  .criteria { display: flex; flex-direction: column; gap: 9px; margin-bottom: 1.5rem; }
+  .crit-row { display: flex; align-items: center; gap: 10px; }
+  .crit-label { font-size: 13px; color: #bbb; flex: 1.2; }
+  .bar-bg { flex: 2; height: 5px; background: #222; border-radius: 3px; overflow: hidden; }
+  .bar-fg { height: 100%; border-radius: 3px; }
+  .crit-val { font-size: 13px; font-weight: 500; min-width: 36px; text-align: right; }
+  .fb { font-size: 14px; line-height: 1.75; color: #ccc; }
+  .fb h4 { font-size: 14px; font-weight: 500; color: #fff; margin: 14px 0 5px; }
+  .fb h4:first-child { margin-top: 0; }
+  .score-actions { display: flex; gap: 8px; margin-top: 1.25rem; }
+  .score-actions button { flex: 1; padding: 11px; font-size: 13px; border-radius: 8px; border: 0.5px solid #333; background: transparent; color: #aaa; cursor: pointer; font-family: inherit; }
+  .score-actions button:hover { background: #1a1a1a; color: #fff; }
+
+  /* feedback blocks */
+  .fb-block { margin-top: 1.25rem; }
+  .fb-block h4 { font-size: 14px; font-weight: 500; color: #fff; margin-bottom: 8px; }
+  .fb-block p { font-size: 14px; line-height: 1.75; color: #ccc; }
+  .fb-block ul { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 4px; }
+  .fb-block ul li { font-size: 14px; color: #f87171; line-height: 1.6; }
+  .fb-danger { background: #1a0a0a; border: 0.5px solid #3a1515; border-radius: 10px; padding: 1rem; }
+  .fb-success { background: #0a1a0a; border: 0.5px solid #1a3a1a; border-radius: 10px; padding: 0.75rem 1rem; }
+  .fb-success h4 { color: #5cb85c; margin: 0; }
+  .erro-item { margin-top: 10px; padding: 10px 12px; background: #220a0a; border-radius: 8px; border-left: 3px solid #f87171; }
+  .erro-item:first-of-type { margin-top: 6px; }
+  .erro-momento { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .erro-desc { font-size: 13px; color: #f87171; margin-bottom: 4px; line-height: 1.5; }
+  .erro-fix { font-size: 13px; color: #5cb85c; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TELA 1: escolha de dificuldade -->
+  <div id="difficulty-screen">
+    <div>
+      <div class="screen-title">Simulador SDR — Modo Áudio</div>
+      <div class="screen-sub">Escolha o nível de dificuldade para iniciar a sessão.</div>
+    </div>
+
+    <div class="diff-cards">
+      <div class="diff-card" data-level="facil" onclick="selectDiff(this)">
+        <div class="diff-icon">😊</div>
+        <div class="diff-info">
+          <div class="diff-name">Fácil</div>
+          <div class="diff-desc">Barbeiro receptivo e aberto. Poucas objeções. Ideal para SDRs em onboarding ou primeiros roleplays.</div>
+        </div>
+        <div class="diff-badge" style="background:#0a2a0a;color:#5cb85c">Fácil</div>
+      </div>
+
+      <div class="diff-card" data-level="medio" onclick="selectDiff(this)">
+        <div class="diff-icon">🤔</div>
+        <div class="diff-info">
+          <div class="diff-name">Médio</div>
+          <div class="diff-desc">1 a 2 objeções naturais (preço, tempo, contrato). Pode ser convencido com bons argumentos.</div>
+        </div>
+        <div class="diff-badge" style="background:#2a1f00;color:#f5c518">Médio</div>
+      </div>
+
+      <div class="diff-card" data-level="dificil" onclick="selectDiff(this)">
+        <div class="diff-icon">😤</div>
+        <div class="diff-info">
+          <div class="diff-name">Difícil</div>
+          <div class="diff-desc">Cético, já se frustrou com outro sistema. Questiona tudo e exige provas. Para SDRs com experiência.</div>
+        </div>
+        <div class="diff-badge" style="background:#2a0a0a;color:#f87171">Difícil</div>
+      </div>
+
+      <div class="diff-card" data-level="aleatorio" onclick="selectDiff(this)">
+        <div class="diff-icon">🎲</div>
+        <div class="diff-info">
+          <div class="diff-name">Aleatório</div>
+          <div class="diff-desc">Nível e perfil do barbeiro sorteados a cada sessão. Boa opção para treino variado.</div>
+        </div>
+        <div class="diff-badge" style="background:#1a103a;color:#a78bfa">Aleatório</div>
+      </div>
+    </div>
+
+    <button id="start-btn" onclick="startSession()">Escolha um nível para começar</button>
+  </div>
+
+  <!-- TELA 2: sessão de roleplay -->
+  <div id="session-screen">
+    <h2>Simulador SDR — Modo Áudio</h2>
+    <p class="subtitle">Segure o botão para falar · Solte para enviar · O barbeiro responde em voz</p>
+
+    <div id="persona-card">
+      <div id="persona-avatar">--</div>
+      <div id="persona-info">
+        <strong id="p-name">Carregando...</strong>
+        <span id="p-desc"></span>
+      </div>
+      <div id="difficulty-badge"></div>
+    </div>
+
+    <div id="chat-window"></div>
+
+    <div id="mic-area">
+      <div id="status-label">Aguardando...</div>
+      <div id="mic-btn" disabled>
+        <div id="pulse-ring"></div>
+        <span id="mic-icon">🎙️</span>
+      </div>
+      <div id="mic-hint">Segure para falar · Solte para enviar</div>
+      <div id="transcript-preview"></div>
+    </div>
+
+    <div id="actions">
+      <button class="act-btn" id="end-btn" disabled>⏹ Encerrar e avaliar</button>
+      <button class="act-btn" id="back-btn" onclick="goBack()">↩ Trocar nível</button>
+    </div>
+
+    <div id="scorecard"></div>
+  </div>
+
+</div>
+
+<script>
+const PERSONAS = {
+  facil: [
+    { name:"Rodrigo Mendes", initials:"RM", city:"Pinhais", shop:"Barbearia Clássica",
+      desc:"Preso na cadeira, quer sair da operação · Perfil I", disc:"I",
+      contexto:"Tem 2 barbeiros contratados mas ainda corta cabelo todo dia. Fatura ~R$12k/mês. CNPJ ativo há 2 anos. Quer crescer mas não sabe como estruturar.",
+      dor:"Está preso na cadeira e quer sair da operação para focar na gestão.",
+      objecoes:[],
+      comportamento:"Seja comunicativo e animado. Conta histórias dos clientes. Aceita agendamento se o SDR conectar bem a dor. Perfil I: fala bastante, gosta de conexão e energia positiva."
+    },
+    { name:"Leandro Paz", initials:"LP", city:"Colombo", shop:"Barbearia Paz",
+      desc:"Quer fidelizar clientes, tem medo de mudar · Perfil S", disc:"S",
+      contexto:"Trabalha sozinho. Fatura R$8k/mês. CNPJ ativo. Clientela fiel mas irregular. Quer assinatura mas é conservador.",
+      dor:"Falta de recorrência — clientes somem e ele não tem como recontatar.",
+      objecoes:["Deixa eu pensar um pouco","Não gosto de me comprometer sem conhecer bem"],
+      comportamento:"Calmo e cauteloso. Não decide rápido. Se o SDR pressionar, recua. Se passar segurança e não pressionar, aceita. Perfil S: fala devagar, conservador, precisa de confiança."
+    },
+    { name:"Bruno Alves", initials:"BA", city:"Campo Largo", shop:"Barber Bruno",
+      desc:"Abriu há 6 meses, quer organizar a gestão · Perfil D", disc:"D",
+      contexto:"Barbearia nova, 1 barbeiro contratado. Fatura R$7k/mês. CNPJ ativo. Quer sistema desde o início.",
+      dor:"Não tem controle nenhum do negócio — tudo na cabeça ou no caderno.",
+      objecoes:[],
+      comportamento:"Direto e objetivo. Não gosta de enrolação. Se o SDR for objetivo e mostrar resultado rápido, aceita na hora. Perfil D: impaciente com rodeios, quer saber o que ganha."
+    },
+  ],
+  medio: [
+    { name:"Claudinho Silva", initials:"CS", city:"Araucária", shop:"Studio do Claudinho",
+      desc:"Questiona preço e quer comparar antes de decidir · Perfil C", disc:"C",
+      contexto:"3 barbeiros, fatura R$18k/mês. CNPJ ativo. Já pesquisou outros sistemas.",
+      dor:"Dificuldade em controlar comissão dos colaboradores e sangramento de caixa.",
+      objecoes:["Qual o valor?","Tem contrato de fidelidade?","Que garantia eu tenho que funciona?"],
+      comportamento:"Analítico. Faz perguntas técnicas. Questiona preço e contrato. Se o SDR for vago, fica desconfiado. Se usar lógica e fatos, fica interessado. Perfil C: quer dados, processos, detalhes."
+    },
+    { name:"Fábio Teixeira", initials:"FT", city:"Curitiba", shop:"FT Barber Shop",
+      desc:"Vai abrir em 2 meses, sem CNPJ ainda · Perfil I", disc:"I",
+      contexto:"Ainda não abriu. Sem CNPJ. Empolgado. Quer começar estruturado.",
+      dor:"Quer não repetir erros de outros donos que conhece.",
+      objecoes:["Ainda não abri","Não tenho CNPJ ainda","Posso contratar agora mesmo?"],
+      comportamento:"Empolgado e falante. Conta histórias de amigos com barbearia. Se o SDR souber lidar com timing de lead futuro, pode agendar consultoria de planejamento. Perfil I: animado, fala muito."
+    },
+    { name:"Renan Costa", initials:"RC", city:"Almirante Tamandaré", shop:"Costa Barber",
+      desc:"Quer expandir mas está sobrecarregado · Perfil D", disc:"D",
+      contexto:"2 unidades, 5 barbeiros. Fatura R$35k/mês. CNPJ ativo. Quer abrir 3ª unidade.",
+      dor:"Expansão sem estrutura — não consegue replicar o modelo.",
+      objecoes:["Tô muito ocupado agora","Já tenho um sistema, só que não uso direito"],
+      comportamento:"Direto e ocupado. Fala que está corrido. Se o SDR identificar a dor de expansão e criar urgência, aceita. Perfil D: foco em resultado, sem paciência para apresentação longa."
+    },
+  ],
+  dificil: [
+    { name:"Wagner Rocha", initials:"WR", city:"São José dos Pinhais", shop:"Barbearia do Wagner",
+      desc:"Usou sistema parecido e se frustrou · Perfil C", disc:"C",
+      contexto:"4 barbeiros, fatura R$25k/mês. CNPJ ativo. Usou outro sistema por 8 meses e cancelou. Está com raiva.",
+      dor:"Falta de controle de caixa e comissão — mas desconfia de qualquer solução.",
+      objecoes:["Já usei um sistema parecido e não funcionou","Esses sistemas são tudo igual","Quanto custa? O outro era caro e não entregou nada"],
+      comportamento:"Cético e desconfiado. Menciona o sistema anterior com frustração. Faz perguntas duras. Só abranda se o SDR ouvir com empatia, não empurrar produto, e conectar a dor real. Perfil C: quer lógica e provas, não promessas."
+    },
+    { name:"Dênis Carvalho", initials:"DC", city:"Fazenda Rio Grande", shop:"Den's Barber",
+      desc:"Usa planilha do Excel, acha caro · Perfil C", disc:"C",
+      contexto:"Trabalha sozinho. Fatura R$6k/mês. CNPJ ativo. Usa planilha e acha que resolve.",
+      dor:"Não tem recorrência nem fidelização — mas não percebe como problema ainda.",
+      objecoes:["Eu me viro com planilha","Isso aí deve ser caro","Não vejo necessidade agora"],
+      comportamento:"Resistente e pragmático. Acha que planilha resolve tudo. Questiona preço logo. Só se interessa se o SDR descobrir a dor real de falta de clientes e mostrar que planilha não resolve isso. Perfil C: racional, não se emociona fácil."
+    },
+    { name:"Márcio Lima", initials:"ML", city:"Piraquara", shop:"Márcio's Cuts",
+      desc:"Muito desconfiado, acha que é golpe · Perfil S", disc:"S",
+      contexto:"2 barbeiros, fatura R$14k/mês. CNPJ ativo. Já recebeu ligações de golpe. Muito desconfiado.",
+      dor:"Dificuldade de gestão e comissão — mas não confia em quem liga.",
+      objecoes:["Como você pegou meu número?","Isso é golpe?","Me manda no WhatsApp que eu vejo"],
+      comportamento:"Muito desconfiado no início. Pergunta como conseguiu o número. Só se abre se o SDR for transparente, paciente e construir confiança aos poucos. Não pressionar de forma alguma. Perfil S: calmo mas fechado — precisa de segurança antes de qualquer coisa."
+    },
+  ],
+};
+
+const DIFF_META = {
+  facil:    { label:"fácil",     bg:"#0a2a0a", color:"#5cb85c" },
+  medio:    { label:"médio",     bg:"#2a1f00", color:"#f5c518" },
+  dificil:  { label:"difícil",   bg:"#2a0a0a", color:"#f87171" },
+  aleatorio:{ label:"aleatório", bg:"#1a103a", color:"#a78bfa" },
+};
+
+const DIFF_RULES = {
+  facil:   "Seja receptivo, demonstre interesse genuíno, faça no máximo 1 objeção leve e aceite facilmente uma proposta de agendamento.",
+  medio:   "Faça 1-2 objeções naturais (preço, tempo, contrato). Resista um pouco, mas pode ser convencido com bons argumentos e empatia.",
+  dificil: "Seja bastante cético. Mencione que já usou sistema parecido e se frustrou. Questione cada benefício. Só se interesse se o SDR apresentar provas concretas e contornar bem as objeções.",
+};
+
+const API_URL = "https://api.anthropic.com/v1/messages";
+
+let selectedLevel = null, persona = null;
+let history = [], isProcessing = false, sessionEnded = false, turnCount = 0;
+let recognition = null, isListening = false;
+let voicePT = null;
+
+const chatWin   = document.getElementById("chat-window");
+const micBtn    = document.getElementById("mic-btn");
+const micIcon   = document.getElementById("mic-icon");
+const statusLbl = document.getElementById("status-label");
+const txPrev    = document.getElementById("transcript-preview");
+const endBtn    = document.getElementById("end-btn");
+
+// ── Seleção de dificuldade ──
+function selectDiff(card) {
+  document.querySelectorAll(".diff-card").forEach(c => c.className = "diff-card");
+  const lvl = card.dataset.level;
+  card.classList.add("sel-" + lvl);
+  selectedLevel = lvl;
+  const btn = document.getElementById("start-btn");
+  btn.className = "ready";
+  btn.textContent = "Iniciar sessão →";
+}
+
+function startSession() {
+  if (!selectedLevel) return;
+  document.getElementById("difficulty-screen").style.display = "none";
+  document.getElementById("session-screen").style.display = "flex";
+  init();
+}
+
+function goBack() {
+  speechSynthesis.cancel();
+  if (recognition) try { recognition.abort(); } catch(e) {}
+  document.getElementById("session-screen").style.display = "none";
+  document.getElementById("difficulty-screen").style.display = "flex";
+  document.getElementById("scorecard").style.display = "none";
+  document.getElementById("chat-window").innerHTML = "";
+}
+
+// ── Vozes ──
+function loadVoices() {
+  return new Promise(resolve => {
+    const pick = () => {
+      const v = speechSynthesis.getVoices();
+      voicePT = v.find(x => x.lang.startsWith("pt") && x.lang.includes("BR") && x.name.toLowerCase().includes("male"))
+             || v.find(x => x.lang.startsWith("pt") && x.lang.includes("BR"))
+             || v.find(x => x.lang.startsWith("pt"))
+             || v.find(x => x.lang.startsWith("es"))
+             || null;
+      resolve();
+    };
+    if (speechSynthesis.getVoices().length) pick();
+    else speechSynthesis.onvoiceschanged = pick;
+  });
+}
+
+function speak(text, onEnd) {
+  speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  if (voicePT) utt.voice = voicePT;
+  utt.lang = voicePT ? voicePT.lang : "pt-BR";
+  utt.rate = 0.95; utt.pitch = 0.9;
+  utt.onend = onEnd || null; utt.onerror = onEnd || null;
+  speechSynthesis.speak(utt);
+}
+
+// ── UI ──
+function setStatus(text, cls) { statusLbl.textContent = text; statusLbl.className = cls || ""; }
+
+function addMsg(role, text) {
+  const isSDR = role === "sdr";
+  const div = document.createElement("div"); div.className = "msg " + (isSDR ? "sdr" : "barbeiro");
+  const av = document.createElement("div"); av.className = "msg-av"; av.textContent = isSDR ? "SDR" : persona.initials;
+  const bub = document.createElement("div"); bub.className = "bubble"; bub.textContent = text;
+  if (isSDR) { div.appendChild(bub); div.appendChild(av); } else { div.appendChild(av); div.appendChild(bub); }
+  chatWin.appendChild(div); chatWin.scrollTop = chatWin.scrollHeight;
+}
+
+function showTyping() {
+  const div = document.createElement("div"); div.className = "msg barbeiro"; div.id = "typing";
+  const av = document.createElement("div"); av.className = "msg-av"; av.textContent = persona.initials;
+  const bub = document.createElement("div"); bub.className = "bubble";
+  bub.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  div.appendChild(av); div.appendChild(bub); chatWin.appendChild(div); chatWin.scrollTop = chatWin.scrollHeight;
+}
+function hideTyping() { const t = document.getElementById("typing"); if (t) t.remove(); }
+
+// ── Persona ──
+function renderPersona(p) {
+  document.getElementById("persona-avatar").textContent = p.initials;
+  document.getElementById("p-name").textContent = p.name + " — " + p.shop;
+  document.getElementById("p-desc").textContent = p.city + " · " + p.desc;
+  const b = document.getElementById("difficulty-badge");
+  const meta = DIFF_META[p.difficulty];
+  b.textContent = meta.label;
+  b.style.background = meta.bg;
+  b.style.color = meta.color;
+}
+
+function buildSystem(p) {
+  const objs = p.objecoes && p.objecoes.length
+    ? "Suas objeções naturais desta sessão (use no momento certo, não logo de cara): " + p.objecoes.join(" / ") + "."
+    : "Você não tem grandes objeções nesta sessão.";
+  return (
+    "Você é " + p.name + ", dono da " + p.shop + " em " + p.city + ", PR.\n" +
+    "Contexto: " + p.contexto + "\n" +
+    "Sua dor principal: " + p.dor + "\n" +
+    "Perfil DISC: " + p.disc + " — " + p.comportamento + "\n" +
+    objs + "\n\n" +
+    "REGRAS ABSOLUTAS:\n" +
+    "- Responda SEMPRE como o barbeiro, 1ª pessoa, linguagem coloquial brasileira.\n" +
+    "- NUNCA quebre o personagem. NUNCA revele que é IA.\n" +
+    "- Respostas CURTAS: 1 a 3 frases. Como numa ligação real. Não escreva parágrafos.\n" +
+    "- Não entregue sua dor de graça — deixe o SDR descobrir fazendo perguntas.\n" +
+    "- Só mencione objeções se o SDR pular etapas ou empurrar produto sem ouvir.\n" +
+    "- Se o SDR fizer uma boa qualificação, identificar sua dor e conectar à consultoria com urgência, aceite o agendamento naturalmente.\n" +
+    "- Se o SDR ficar genérico, empurrativo ou falar mais de 1 minuto sem te perguntar nada, fique impaciente e diga que está ocupado."
+  );
+}
+
+// ── API ──
+async function callAPI(messages, system) {
+  const resp = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system, messages })
+  });
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content[0].text;
+}
+
+// ── Reconhecimento de fala ──
+// Recria o objeto a cada uso para evitar estado inválido entre sessões
+function createRecognition(onFinalResult) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert("Reconhecimento de fala não suportado. Use Chrome ou Edge."); return null; }
+  const rec = new SR();
+  rec.lang = "pt-BR";
+  rec.continuous = false;       // false = mais estável para push-to-talk
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  let collected = "";
+
+  rec.onresult = (e) => {
+    let interim = "";
+    for (let i = 0; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) collected += t;
+      else interim += t;
+    }
+    txPrev.textContent = (collected + interim).trim() || "";
+  };
+
+  rec.onend = () => {
+    // Disparado quando recognition para (por stop() ou timeout)
+    if (isListening) {
+      // ainda segurando — reinicia para capturar mais
+      try { rec.start(); } catch(e) {}
+    } else {
+      // soltou o botão — entrega resultado
+      onFinalResult(collected.trim());
+    }
+  };
+
+  rec.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      setStatus("Permissão de microfone negada. Verifique as configurações do navegador.");
+    } else if (e.error !== "no-speech" && e.error !== "aborted") {
+      setStatus("Erro no microfone: " + e.error);
+    }
+  };
+
+  return rec;
+}
+
+// ── Push-to-talk ──
+function startListening() {
+  if (isProcessing || sessionEnded) return;
+  speechSynthesis.cancel();
+  currentTranscript = ""; txPrev.textContent = "";
+  isListening = true;
+  micBtn.classList.add("active"); micIcon.textContent = "🔴";
+  setStatus("Ouvindo... fale agora", "listening");
+
+  // Cria instância nova a cada press
+  recognition = createRecognition((finalText) => {
+    txPrev.textContent = "";
+    if (finalText) sendTurn(finalText);
+    else setStatus("Nada captado. Tente novamente.");
+  });
+  if (!recognition) return;
+  try { recognition.start(); } catch(e) { setStatus("Erro ao iniciar microfone: " + e.message); }
+}
+
+function stopListening() {
+  if (!isListening) return;
+  isListening = false;
+  micBtn.classList.remove("active"); micIcon.textContent = "🎙️";
+  // onend do recognition vai entregar o resultado
+  try { if (recognition) recognition.stop(); } catch(e) {}
+}
+
+micBtn.addEventListener("mousedown",  (e) => { e.preventDefault(); startListening(); });
+micBtn.addEventListener("mouseup",    stopListening);
+micBtn.addEventListener("mouseleave", () => { if (isListening) stopListening(); });
+micBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startListening(); }, { passive: false });
+micBtn.addEventListener("touchend",   (e) => { e.preventDefault(); stopListening(); });
+
+// ── Turno ──
+async function sendTurn(text) {
+  if (isProcessing || sessionEnded) return;
+  isProcessing = true; micBtn.setAttribute("disabled",""); endBtn.setAttribute("disabled","");
+  setStatus("Processando...", "thinking");
+  history.push({ role: "user", content: text });
+  addMsg("sdr", text); showTyping(); turnCount++;
+  try {
+    const reply = await callAPI(history, buildSystem(persona));
+    history.push({ role: "assistant", content: reply });
+    hideTyping(); addMsg("barbeiro", reply);
+    micBtn.classList.add("speaking-state"); micIcon.textContent = "🔊";
+    setStatus(persona.name + " falando...", "speaking");
+    speak(reply, () => {
+      micBtn.classList.remove("speaking-state"); micIcon.textContent = "🎙️";
+      setStatus("Sua vez — segure para falar");
+      isProcessing = false; micBtn.removeAttribute("disabled");
+      if (turnCount >= 2) endBtn.removeAttribute("disabled");
+    });
+  } catch(e) {
+    hideTyping(); setStatus("Erro: " + e.message);
+    isProcessing = false; micBtn.removeAttribute("disabled");
+  }
+}
+
+// ── Abertura ──
+async function getGreeting() {
+  setStatus("Ligando para a barbearia..."); showTyping();
+  try {
+    const reply = await callAPI(
+      [{ role: "user", content: "O telefone da sua barbearia está tocando. Atenda com uma frase curta e natural." }],
+      buildSystem(persona) + "\n\nAtenda o telefone agora com 1 frase bem curta e natural."
+    );
+    history.push({ role: "assistant", content: reply });
+    hideTyping(); addMsg("barbeiro", reply);
+    micBtn.classList.add("speaking-state"); micIcon.textContent = "🔊";
+    setStatus(persona.name + " falando...", "speaking");
+    speak(reply, () => {
+      micBtn.classList.remove("speaking-state"); micIcon.textContent = "🎙️";
+      setStatus("Sua vez — segure para falar"); micBtn.removeAttribute("disabled");
+    });
+  } catch(e) {
+    hideTyping();
+    const fb = "Alô, " + persona.shop + ", boa tarde!";
+    history.push({ role: "assistant", content: fb }); addMsg("barbeiro", fb);
+    speak(fb, () => { micIcon.textContent = "🎙️"; setStatus("Sua vez — segure para falar"); micBtn.removeAttribute("disabled"); });
+  }
+}
+
+// ── Avaliação ──
+endBtn.addEventListener("click", async () => {
+  if (isProcessing) return;
+  speechSynthesis.cancel();
+  sessionEnded = true; endBtn.setAttribute("disabled",""); micBtn.setAttribute("disabled","");
+  setStatus("Gerando avaliação...", "thinking");
+
+  const transcript = history.map(m => (m.role === "user" ? "SDR" : "Barbeiro (" + persona.name + ")") + ": " + m.content).join("\n");
+  const numTurnos = history.filter(m => m.role === "user").length;
+  const gabarito =
+    "GABARITO DO LEAD (use para avaliar o que o SDR descobriu ou deixou de descobrir):\n" +
+    "- Nome: " + persona.name + "\n" +
+    "- Barbearia: " + persona.shop + " em " + persona.city + "\n" +
+    "- Contexto completo: " + persona.contexto + "\n" +
+    "- Dor principal: " + persona.dor + "\n" +
+    "- Perfil DISC: " + persona.disc + "\n" +
+    "- Objeções disponíveis: " + (persona.objecoes.join(", ") || "nenhuma") + "\n";
+
+  const evalPrompt =
+    "Você é o gestor de pré-vendas da Podium Educação avaliando uma call de SDR com um dono de barbearia.\n\n" +
+    gabarito + "\n" +
+    "SCRIPT OBRIGATÓRIO DO SDR — 7 etapas:\n" +
+    "E1 ABERTURA: Se apresentar, apresentar a Podium, explicar motivo do contato e objetivo da conversa.\n" +
+    "E2 MOTIVO DA BUSCA: Perguntar o que chamou atenção do lead (ouvir: assinaturas, gestão, comissão, expansão, fidelização, sair da cadeira).\n" +
+    "E3 QUALIFICAÇÃO COMPLETA — o SDR PRECISA descobrir todos estes dados perguntando:\n" +
+    "   • Objetivo do dono (sair da cadeira? expandir? organizar gestão?)\n" +
+    "   • Dor principal\n" +
+    "   • Faturamento mensal\n" +
+    "   • CNPJ ativo (sim/não)\n" +
+    "   • Estrutura: trabalha sozinho ou tem colaboradores?\n" +
+    "   • Tem sócio?\n" +
+    "   • Se faturamento < R$10k: validar se tem pelo menos R$300 para investir\n" +
+    "   • Sistema atual\n" +
+    "E4 IDENTIFICAÇÃO DA DOR: Extrair a dor com base no que o lead falou — não de pergunta direta.\n" +
+    "E5 CONECTAR DOR À CONSULTORIA: Relacionar a dor identificada ao que será tratado na consultoria. Gerar interesse e urgência.\n" +
+    "E6 FECHAMENTO: Assumir o próximo passo. NUNCA perguntar 'quer agendar?' ou 'gostaria de participar?'. Usar escassez e controle de agenda.\n" +
+    "E7 TEMPO DE CALL: 5-7 turnos = excelente. 8-12 turnos = boa. Acima de 12 = perigosa (SDR está fazendo consultoria).\n\n" +
+    "Número de turnos do SDR nesta call: " + numTurnos + "\n\n" +
+    "INSTRUÇÕES DE AVALIAÇÃO:\n" +
+    "- Compare o que o SDR perguntou com o gabarito acima.\n" +
+    "- Liste CADA dado obrigatório que o SDR deixou de perguntar, com o impacto disso.\n" +
+    "- Liste CADA erro cometido na call (momento específico + o que disse + o que deveria ter dito).\n" +
+    "- Seja direto, sem eufemismo. Se foi ruim, diga que foi ruim e explique por quê.\n" +
+    "- Pontos fortes só se realmente merecer — não invente elogio.\n\n" +
+    "Responda APENAS JSON válido, sem markdown, sem texto extra.\n\n" +
+    'Formato: {"notas":{"e1_abertura":0,"e2_motivo_busca":0,"e3_qualificacao":0,"e4_identificacao_dor":0,"e5_conexao_consultoria":0,"e6_fechamento":0,"e7_tempo_call":0},' +
+    '"dados_nao_coletados":["faturamento","cnpj","estrutura"],' +
+    '"erros_cometidos":[{"momento":"turno 2","erro":"perguntou se quer agendar ao invés de assumir o próximo passo","deveria":"Como está sua agenda amanhã de manhã?"}],' +
+    '"pontos_fortes":"texto ou null se não houver",' +
+    '"pontos_melhoria":"texto com melhorias específicas e praticáveis",' +
+    '"resumo_geral":"frase curta de veredicto"}\n\n' +
+    "Conversa:\n" + transcript;
+
+  try {
+    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON.");
+    const result = JSON.parse(raw.replace(/```json|```/g, "").trim());
+    renderScore(result); setStatus("Avaliação concluída!");
+  } catch(e) {
+    setStatus("Erro ao avaliar: " + e.message);
+    endBtn.removeAttribute("disabled"); sessionEnded = false;
+  }
+});
+
+function renderScore(result) {
+  const n = result.notas || {};
+  const labels = {
+    e1_abertura:           "E1 — Abertura",
+    e2_motivo_busca:       "E2 — Motivo da busca",
+    e3_qualificacao:       "E3 — Qualificação",
+    e4_identificacao_dor:  "E4 — Identificação da dor",
+    e5_conexao_consultoria:"E5 — Conectar dor à consultoria",
+    e6_fechamento:         "E6 — Fechamento",
+    e7_tempo_call:         "E7 — Tempo de call",
+  };
+  const vals = Object.keys(labels).map(k => Number(n[k]||0));
+  const total = vals.reduce((a,b)=>a+b,0);
+  const max = Object.keys(labels).length * 10;
+  const col = total>=(max*0.7)?"#5cb85c":total>=(max*0.5)?"#f5c518":"#f87171";
+
+  // Notas por etapa
+  let rows = "";
+  for (const [k,label] of Object.entries(labels)) {
+    const v = Number(n[k]||0);
+    const c = v>=7?"#5cb85c":v>=5?"#f5c518":"#f87171";
+    rows += '<div class="crit-row">'+
+      '<span class="crit-label">'+label+'</span>'+
+      '<div class="bar-bg"><div class="bar-fg" style="width:'+(v*10)+'%;background:'+c+'"></div></div>'+
+      '<span class="crit-val" style="color:'+c+'">'+v+'/10</span></div>';
+  }
+
+  // Dados não coletados
+  const DADO_LABELS = {
+    objetivo:"Objetivo do dono", dor:"Dor principal", faturamento:"Faturamento mensal",
+    cnpj:"CNPJ ativo", estrutura:"Estrutura (sozinho/colaboradores)", socio:"Tem sócio?",
+    caixa_minimo:"Capacidade de investir R$300 (faturamento <10k)", sistema_atual:"Sistema atual"
+  };
+  const naoColetados = result.dados_nao_coletados || [];
+  let dadosHTML = "";
+  if (naoColetados.length) {
+    dadosHTML = '<div class="fb-block fb-danger">'+
+      '<h4>📋 Dados obrigatórios não coletados ('+naoColetados.length+')</h4>'+
+      '<ul>'+naoColetados.map(d=>'<li>'+(DADO_LABELS[d]||d)+'</li>').join("")+'</ul></div>';
+  } else {
+    dadosHTML = '<div class="fb-block fb-success"><h4>📋 Todos os dados obrigatórios coletados ✅</h4></div>';
+  }
+
+  // Erros cometidos
+  const erros = result.erros_cometidos || [];
+  let errosHTML = "";
+  if (erros.length) {
+    errosHTML = '<div class="fb-block fb-danger">'+
+      '<h4>⚠️ Erros cometidos na call ('+erros.length+')</h4>'+
+      erros.map(e=>
+        '<div class="erro-item">'+
+          '<div class="erro-momento">'+(e.momento||"")+'</div>'+
+          '<div class="erro-desc">❌ '+e.erro+'</div>'+
+          '<div class="erro-fix">✏️ '+e.deveria+'</div>'+
+        '</div>'
+      ).join("")+'</div>';
+  } else {
+    errosHTML = '<div class="fb-block fb-success"><h4>⚠️ Nenhum erro crítico identificado ✅</h4></div>';
+  }
+
+  // Pontos fortes e melhoria
+  const fortesHTML = result.pontos_fortes && result.pontos_fortes !== "null"
+    ? '<div class="fb-block"><h4>✅ Pontos fortes</h4><p>'+result.pontos_fortes+'</p></div>'
+    : '';
+  const melhoriaHTML = '<div class="fb-block"><h4>🎯 Como melhorar</h4><p>'+(result.pontos_melhoria||"—")+'</p></div>';
+
+  const meta = DIFF_META[persona.difficulty];
+  const sc = document.getElementById("scorecard");
+  sc.style.display = "block";
+  sc.innerHTML =
+    '<h3>Avaliação — '+persona.name+
+      ' <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:'+meta.bg+';color:'+meta.color+';margin-left:6px">'+meta.label+'</span>'+
+      ' <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#1a1a3a;color:#a78bfa;margin-left:4px">DISC '+persona.disc+'</span>'+
+    '</h3>'+
+    '<div class="score-hero">'+
+      '<span class="big" style="color:'+col+'">'+total+'</span>'+
+      '<span class="denom">/'+max+'</span>'+
+      '<span class="verdict">'+(result.resumo_geral||"")+'</span>'+
+    '</div>'+
+    '<div class="criteria">'+rows+'</div>'+
+    dadosHTML + errosHTML + fortesHTML + melhoriaHTML +
+    '<div class="score-actions">'+
+      '<button onclick="init()">↩ Repetir nível '+meta.label+'</button>'+
+      '<button onclick="goBack()">🎯 Escolher outro nível</button>'+
+    '</div>';
+  setTimeout(() => sc.scrollIntoView({ behavior:"smooth" }), 100);
+}
+
+// ── Init ──
+async function init() {
+  speechSynthesis.cancel();
+  const effectiveLevel = selectedLevel === "aleatorio"
+    ? ["facil","medio","dificil"][Math.floor(Math.random()*3)]
+    : selectedLevel;
+  const pool = PERSONAS[effectiveLevel];
+  const base = pool[Math.floor(Math.random()*pool.length)];
+  persona = { ...base, difficulty: effectiveLevel };
+
+  history = []; turnCount = 0; sessionEnded = false; isProcessing = false; isListening = false;
+  chatWin.innerHTML = "";
+  micBtn.setAttribute("disabled",""); micIcon.textContent = "🎙️";
+  micBtn.className = ""; micBtn.id = "mic-btn";
+  endBtn.setAttribute("disabled","");
+  txPrev.textContent = "";
+  document.getElementById("scorecard").style.display = "none";
+  renderPersona(persona);
+  await loadVoices();
+  getGreeting();
+}
+</script>
+</body>
+</html>
