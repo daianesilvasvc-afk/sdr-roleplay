@@ -463,9 +463,14 @@ function hideTyping() { const t = document.getElementById("typing"); if (t) t.re
 
 // ── Persona ──
 function renderPersona(p) {
+  // Extrair faturamento do contexto
+  const fatMatch = p.contexto.match(/[Ff]atura\s+(R\$[\d.,]+k?\/mês)/);
+  const fat = fatMatch ? fatMatch[1] : "—";
+
   document.getElementById("persona-avatar").textContent = p.initials;
-  document.getElementById("p-name").textContent = p.name + " — " + p.shop;
-  document.getElementById("p-desc").textContent = p.city + " · " + p.desc;
+  document.getElementById("p-name").textContent = p.name;
+  document.getElementById("p-desc").textContent = p.city + " · " + fat + " · DISC " + p.disc;
+
   const b = document.getElementById("difficulty-badge");
   const meta = DIFF_META[p.difficulty];
   b.textContent = meta.label;
