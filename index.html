@@ -659,18 +659,38 @@ endBtn.addEventListener("click", async () => {
     "- Objeções disponíveis: " + (persona.objecoes.join(", ") || "nenhuma") + "\n";
 
   const evalPrompt =
-    "Você é gestor de pré-vendas da Podium avaliando uma call de SDR.\n" +
+    "Você é o gestor de pré-vendas da Podium Educação avaliando uma call de SDR.\n" +
     gabarito +
-    "SCRIPT PODIUM (7 etapas):\n" +
-    "E1-Abertura: apresentação, empresa, motivo, objetivo.\n" +
-    "E2-Motivo busca: perguntar o que chamou atenção (assinatura, gestão, comissão, expansão, fidelização, sair da cadeira).\n" +
-    "E3-Qualificação: descobrir objetivo, dor, faturamento, CNPJ, estrutura (sozinho/colaboradores), sócio, sistema atual. Se faturamento<10k: validar R$300 mínimo.\n" +
-    "E4-Identificação da dor: extrair dor do que o lead falou, não de pergunta direta.\n" +
-    "E5-Conectar dor à consultoria: relacionar dor ao que será tratado, gerar urgência.\n" +
-    "E6-Fechamento: assumir próximo passo. NUNCA 'quer agendar?'. Usar escassez e controle de agenda.\n" +
+    "CONTEXTO COMERCIAL IMPORTANTE:\n" +
+    "- A empresa por trás é a Podium Educação, mas o lead chegou pelo Cash Barber, pelo Lincoln ou pelo Rapha.\n" +
+    "- É CORRETO o SDR se apresentar como 'falo do Cash Barber', 'sou da equipe do Lincoln' ou 'sou da equipe do Rapha'.\n" +
+    "- Não penalize o SDR por não mencionar 'Podium' — a marca que o lead conhece é Cash Barber / Lincoln / Rapha.\n" +
+    "- O objetivo da call é agendar uma CONSULTORIA GRATUITA — o SDR NÃO vende produto, apenas qualifica e agenda.\n" +
+    "- O FATURAMENTO já vem preenchido no card do lead antes da ligação — o SDR não precisa perguntar, apenas confirmar se houver dúvida. NÃO penalize o SDR por não perguntar faturamento.\n" +
+    "- Perguntar se o dono ainda corta cabelo (atua como barbeiro) É CORRETO e faz parte da qualificação de operação — não penalize isso.\n\n" +
+    "SCRIPT PODIUM (7 etapas obrigatórias):\n" +
+    "E1-Abertura: apresentação do SDR, da marca que o lead reconhece (Cash Barber/Lincoln/Rapha), motivo do contato e objetivo da conversa.\n" +
+    "E2-Motivo da busca: perguntar o que chamou atenção do lead (assinatura, gestão, comissão, expansão, fidelização, sair da cadeira).\n" +
+    "E3-Qualificação completa — o SDR PRECISA descobrir perguntando:\n" +
+    "   • Objetivo do dono (sair da cadeira? expandir? organizar gestão?)\n" +
+    "   • Operação: ainda corta cabelo? pretende sair da cadeira? (VÁLIDO e importante)\n" +
+    "   • Estrutura: trabalha sozinho ou tem colaboradores? quantos?\n" +
+    "   • Tem sócio?\n" +
+    "   • CNPJ ativo (sim/não)\n" +
+    "   • Sistema atual\n" +
+    "   • Faturamento: vem pré-preenchido no card — o SDR confirma na call (ex: Vi aqui que você fatura em torno de X, é isso mesmo?) e não pergunta do zero\n" +
+    "   • Se faturamento confirmado < R$10k: validar se tem pelo menos R$300 para investir\n" +
+    "E4-Identificação da dor: extrair a dor principal com base no que o lead falou — não de pergunta direta.\n" +
+    "E5-Conectar dor à consultoria: relacionar a dor identificada ao que será tratado. Gerar urgência e interesse.\n" +
+    "E6-Fechamento: assumir o próximo passo. NUNCA perguntar 'quer agendar?' ou 'gostaria de participar?'. Usar escassez e controle de agenda.\n" +
     "E7-Tempo: até 7 turnos=excelente, 8-12=boa, acima 12=perigosa.\n\n" +
-    "Turnos do SDR: " + numTurnos + "\n\n" +
-    "AVALIE e liste CADA dado não coletado e CADA erro com momento exato.\n" +
+    "Turnos do SDR nesta call: " + numTurnos + "\n\n" +
+    "INSTRUÇÕES DE AVALIAÇÃO:\n" +
+    "- Compare o que o SDR descobriu com o gabarito do lead.\n" +
+    "- Liste apenas dados que o SDR REALMENTE precisava perguntar e não perguntou (excluir faturamento).\n" +
+    "- Liste erros REAIS — não invente erros por terminologia da empresa ou por perguntas válidas de qualificação.\n" +
+    "- Seja preciso: só aponte erro se realmente prejudicou a call.\n" +
+    "- Pontos fortes apenas se merecer de verdade.\n\n" +
     "Responda SOMENTE JSON válido sem markdown:\n" +
     '{"notas":{"e1":0,"e2":0,"e3":0,"e4":0,"e5":0,"e6":0,"e7":0},' +
     '"nd":["dado não coletado 1"],' +
