@@ -607,38 +607,25 @@ endBtn.addEventListener("click", async () => {
     "- Objeções disponíveis: " + (persona.objecoes.join(", ") || "nenhuma") + "\n";
 
   const evalPrompt =
-    "Você é o gestor de pré-vendas da Podium Educação avaliando uma call de SDR com um dono de barbearia.\n\n" +
-    gabarito + "\n" +
-    "SCRIPT OBRIGATÓRIO DO SDR — 7 etapas:\n" +
-    "E1 ABERTURA: Se apresentar, apresentar a Podium, explicar motivo do contato e objetivo da conversa.\n" +
-    "E2 MOTIVO DA BUSCA: Perguntar o que chamou atenção do lead (ouvir: assinaturas, gestão, comissão, expansão, fidelização, sair da cadeira).\n" +
-    "E3 QUALIFICAÇÃO COMPLETA — o SDR PRECISA descobrir todos estes dados perguntando:\n" +
-    "   • Objetivo do dono (sair da cadeira? expandir? organizar gestão?)\n" +
-    "   • Dor principal\n" +
-    "   • Faturamento mensal\n" +
-    "   • CNPJ ativo (sim/não)\n" +
-    "   • Estrutura: trabalha sozinho ou tem colaboradores?\n" +
-    "   • Tem sócio?\n" +
-    "   • Se faturamento < R$10k: validar se tem pelo menos R$300 para investir\n" +
-    "   • Sistema atual\n" +
-    "E4 IDENTIFICAÇÃO DA DOR: Extrair a dor com base no que o lead falou — não de pergunta direta.\n" +
-    "E5 CONECTAR DOR À CONSULTORIA: Relacionar a dor identificada ao que será tratado na consultoria. Gerar interesse e urgência.\n" +
-    "E6 FECHAMENTO: Assumir o próximo passo. NUNCA perguntar 'quer agendar?' ou 'gostaria de participar?'. Usar escassez e controle de agenda.\n" +
-    "E7 TEMPO DE CALL: 5-7 turnos = excelente. 8-12 turnos = boa. Acima de 12 = perigosa (SDR está fazendo consultoria).\n\n" +
-    "Número de turnos do SDR nesta call: " + numTurnos + "\n\n" +
-    "INSTRUÇÕES DE AVALIAÇÃO:\n" +
-    "- Compare o que o SDR perguntou com o gabarito acima.\n" +
-    "- Liste CADA dado obrigatório que o SDR deixou de perguntar, com o impacto disso.\n" +
-    "- Liste CADA erro cometido na call (momento específico + o que disse + o que deveria ter dito).\n" +
-    "- Seja direto, sem eufemismo. Se foi ruim, diga que foi ruim e explique por quê.\n" +
-    "- Pontos fortes só se realmente merecer — não invente elogio.\n\n" +
-    "Responda APENAS JSON válido, sem markdown, sem texto extra.\n\n" +
-    'Formato: {"notas":{"e1_abertura":0,"e2_motivo_busca":0,"e3_qualificacao":0,"e4_identificacao_dor":0,"e5_conexao_consultoria":0,"e6_fechamento":0,"e7_tempo_call":0},' +
-    '"dados_nao_coletados":["faturamento","cnpj","estrutura"],' +
-    '"erros_cometidos":[{"momento":"turno 2","erro":"perguntou se quer agendar ao invés de assumir o próximo passo","deveria":"Como está sua agenda amanhã de manhã?"}],' +
-    '"pontos_fortes":"texto ou null se não houver",' +
-    '"pontos_melhoria":"texto com melhorias específicas e praticáveis",' +
-    '"resumo_geral":"frase curta de veredicto"}\n\n' +
+    "Você é gestor de pré-vendas da Podium avaliando uma call de SDR.\n" +
+    gabarito +
+    "SCRIPT PODIUM (7 etapas):\n" +
+    "E1-Abertura: apresentação, empresa, motivo, objetivo.\n" +
+    "E2-Motivo busca: perguntar o que chamou atenção (assinatura, gestão, comissão, expansão, fidelização, sair da cadeira).\n" +
+    "E3-Qualificação: descobrir objetivo, dor, faturamento, CNPJ, estrutura (sozinho/colaboradores), sócio, sistema atual. Se faturamento<10k: validar R$300 mínimo.\n" +
+    "E4-Identificação da dor: extrair dor do que o lead falou, não de pergunta direta.\n" +
+    "E5-Conectar dor à consultoria: relacionar dor ao que será tratado, gerar urgência.\n" +
+    "E6-Fechamento: assumir próximo passo. NUNCA 'quer agendar?'. Usar escassez e controle de agenda.\n" +
+    "E7-Tempo: até 7 turnos=excelente, 8-12=boa, acima 12=perigosa.\n\n" +
+    "Turnos do SDR: " + numTurnos + "\n\n" +
+    "AVALIE e liste CADA dado não coletado e CADA erro com momento exato.\n" +
+    "Responda SOMENTE JSON válido sem markdown:\n" +
+    '{"notas":{"e1":0,"e2":0,"e3":0,"e4":0,"e5":0,"e6":0,"e7":0},' +
+    '"nd":["dado não coletado 1"],' +
+    '"er":[{"m":"turno X","e":"erro cometido","d":"como deveria ter feito"}],' +
+    '"pf":"pontos fortes reais ou string vazia",' +
+    '"pm":"melhorias específicas e praticáveis",' +
+    '"rg":"veredicto em uma frase"}\n' +
     "Conversa:\n" + transcript;
 
   try {
@@ -652,25 +639,22 @@ endBtn.addEventListener("click", async () => {
 });
 
 function renderScore(result) {
-  const n = result.notas || {};
+  // suporte a chaves compactas (nd/er/pf/pm/rg/n) e chaves longas (fallback)
+  const n = result.n || result.notas || {};
+  const keyMap = { e1:"e1_abertura", e2:"e2_motivo_busca", e3:"e3_qualificacao", e4:"e4_identificacao_dor", e5:"e5_conexao_consultoria", e6:"e6_fechamento", e7:"e7_tempo_call" };
   const labels = {
-    e1_abertura:           "E1 — Abertura",
-    e2_motivo_busca:       "E2 — Motivo da busca",
-    e3_qualificacao:       "E3 — Qualificação",
-    e4_identificacao_dor:  "E4 — Identificação da dor",
-    e5_conexao_consultoria:"E5 — Conectar dor à consultoria",
-    e6_fechamento:         "E6 — Fechamento",
-    e7_tempo_call:         "E7 — Tempo de call",
+    e1:"E1 — Abertura", e2:"E2 — Motivo da busca", e3:"E3 — Qualificação",
+    e4:"E4 — Identificação da dor", e5:"E5 — Conectar dor à consultoria",
+    e6:"E6 — Fechamento", e7:"E7 — Tempo de call"
   };
-  const vals = Object.keys(labels).map(k => Number(n[k]||0));
-  const total = vals.reduce((a,b)=>a+b,0);
+  const getN = k => Number(n[k] ?? n[keyMap[k]] ?? 0);
+  const total = Object.keys(labels).map(getN).reduce((a,b)=>a+b,0);
   const max = Object.keys(labels).length * 10;
   const col = total>=(max*0.7)?"#5cb85c":total>=(max*0.5)?"#f5c518":"#f87171";
 
-  // Notas por etapa
   let rows = "";
   for (const [k,label] of Object.entries(labels)) {
-    const v = Number(n[k]||0);
+    const v = getN(k);
     const c = v>=7?"#5cb85c":v>=5?"#f5c518":"#f87171";
     rows += '<div class="crit-row">'+
       '<span class="crit-label">'+label+'</span>'+
@@ -678,44 +662,36 @@ function renderScore(result) {
       '<span class="crit-val" style="color:'+c+'">'+v+'/10</span></div>';
   }
 
-  // Dados não coletados
   const DADO_LABELS = {
     objetivo:"Objetivo do dono", dor:"Dor principal", faturamento:"Faturamento mensal",
     cnpj:"CNPJ ativo", estrutura:"Estrutura (sozinho/colaboradores)", socio:"Tem sócio?",
     caixa_minimo:"Capacidade de investir R$300 (faturamento <10k)", sistema_atual:"Sistema atual"
   };
-  const naoColetados = result.dados_nao_coletados || [];
-  let dadosHTML = "";
-  if (naoColetados.length) {
-    dadosHTML = '<div class="fb-block fb-danger">'+
-      '<h4>📋 Dados obrigatórios não coletados ('+naoColetados.length+')</h4>'+
-      '<ul>'+naoColetados.map(d=>'<li>'+(DADO_LABELS[d]||d)+'</li>').join("")+'</ul></div>';
-  } else {
-    dadosHTML = '<div class="fb-block fb-success"><h4>📋 Todos os dados obrigatórios coletados ✅</h4></div>';
-  }
+  const naoColetados = result.nd || result.dados_nao_coletados || [];
+  const erros = result.er || result.erros_cometidos || [];
+  const pontosFortes = result.pf || result.pontos_fortes || "";
+  const melhoria = result.pm || result.pontos_melhoria || "—";
+  const veredicto = result.rg || result.resumo_geral || "";
 
-  // Erros cometidos
-  const erros = result.erros_cometidos || [];
-  let errosHTML = "";
-  if (erros.length) {
-    errosHTML = '<div class="fb-block fb-danger">'+
-      '<h4>⚠️ Erros cometidos na call ('+erros.length+')</h4>'+
+  let dadosHTML = naoColetados.length
+    ? '<div class="fb-block fb-danger"><h4>📋 Dados obrigatórios não coletados ('+naoColetados.length+')</h4><ul>'+
+      naoColetados.map(d=>'<li>'+(DADO_LABELS[d]||d)+'</li>').join("")+'</ul></div>'
+    : '<div class="fb-block fb-success"><h4>📋 Todos os dados obrigatórios coletados ✅</h4></div>';
+
+  let errosHTML = erros.length
+    ? '<div class="fb-block fb-danger"><h4>⚠️ Erros cometidos na call ('+erros.length+')</h4>'+
       erros.map(e=>
         '<div class="erro-item">'+
-          '<div class="erro-momento">'+(e.momento||"")+'</div>'+
-          '<div class="erro-desc">❌ '+e.erro+'</div>'+
-          '<div class="erro-fix">✏️ '+e.deveria+'</div>'+
+          '<div class="erro-momento">'+(e.m||e.momento||"")+'</div>'+
+          '<div class="erro-desc">❌ '+(e.e||e.erro||"")+'</div>'+
+          '<div class="erro-fix">✏️ '+(e.d||e.deveria||"")+'</div>'+
         '</div>'
-      ).join("")+'</div>';
-  } else {
-    errosHTML = '<div class="fb-block fb-success"><h4>⚠️ Nenhum erro crítico identificado ✅</h4></div>';
-  }
+      ).join("")+'</div>'
+    : '<div class="fb-block fb-success"><h4>⚠️ Nenhum erro crítico identificado ✅</h4></div>';
 
-  // Pontos fortes e melhoria
-  const fortesHTML = result.pontos_fortes && result.pontos_fortes !== "null"
-    ? '<div class="fb-block"><h4>✅ Pontos fortes</h4><p>'+result.pontos_fortes+'</p></div>'
-    : '';
-  const melhoriaHTML = '<div class="fb-block"><h4>🎯 Como melhorar</h4><p>'+(result.pontos_melhoria||"—")+'</p></div>';
+  const fortesHTML = pontosFortes
+    ? '<div class="fb-block"><h4>✅ Pontos fortes</h4><p>'+pontosFortes+'</p></div>' : '';
+  const melhoriaHTML = '<div class="fb-block"><h4>🎯 Como melhorar</h4><p>'+melhoria+'</p></div>';
 
   const meta = DIFF_META[persona.difficulty];
   const sc = document.getElementById("scorecard");
@@ -728,7 +704,7 @@ function renderScore(result) {
     '<div class="score-hero">'+
       '<span class="big" style="color:'+col+'">'+total+'</span>'+
       '<span class="denom">/'+max+'</span>'+
-      '<span class="verdict">'+(result.resumo_geral||"")+'</span>'+
+      '<span class="verdict">'+veredicto+'</span>'+
     '</div>'+
     '<div class="criteria">'+rows+'</div>'+
     dadosHTML + errosHTML + fortesHTML + melhoriaHTML +
@@ -739,7 +715,7 @@ function renderScore(result) {
   setTimeout(() => sc.scrollIntoView({ behavior:"smooth" }), 100);
 }
 
-// ── Init ──
+
 async function init() {
   speechSynthesis.cancel();
   const effectiveLevel = selectedLevel === "aleatorio"
