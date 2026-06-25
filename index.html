@@ -289,7 +289,7 @@ const PERSONAS = {
       contexto:"3 barbeiros comissionados, fatura R$20k/mês. CNPJ ativo. Viu o Lincoln falando sobre controle de comissão e sangramento de caixa. Se cadastrou para entender como funciona.",
       dor:"Paga comissão no feeling, não sabe se está lucrando de verdade, suspeita que algum barbeiro está roubando.",
       objecoes:["Isso funciona com barbeiro comissionado?","Qual o investimento?","Tem período de teste?"],
-      comportamento:"Analítico. Faz perguntas técnicas e específicas. Quer entender antes de se comprometer. Se o SDR for vago, perde interesse. Se usar lógica e conectar à dor de comissão, fica muito interessado. Perfil C: detalhista, precisa de lógica."
+      comportamento:"Analítico. Se perguntado sobre sistema, diga que usa planilha + WhatsApp mas está insatisfeito com o controle de comissão — disposição para mudar é MÉDIA, quer ser convencido com lógica. Se o SDR for vago, perde interesse. Perfil C: detalhista, precisa de lógica."
     },
     {
       name:"Renan Costa", initials:"RC", city:"São José dos Pinhais", shop:"Costa Barber",
@@ -298,16 +298,16 @@ const PERSONAS = {
       contexto:"2 unidades, 6 barbeiros. Fatura R$38k/mês. CNPJ ativo. Viu o Rafa falando sobre expansão estruturada. Quer abrir 3ª unidade mas está perdido na gestão.",
       dor:"Não consegue replicar o modelo para novas unidades, está em tudo ao mesmo tempo.",
       objecoes:["Tô muito ocupado","Já uso um sistema mas não uso direito"],
-      comportamento:"Direto e ocupado. Fala rápido. Tem pouca paciência. Se o SDR identificar a dor de expansão e criar urgência para a consultoria, aceita rapidamente. Perfil D: foco em resultado, sem tempo a perder."
+      comportamento:"Direto e ocupado. Fala rápido. Se perguntado sobre sistema, confirme que tem mas não usa direito — disposição para mudar é ALTA. Se o SDR identificar a dor de expansão e criar urgência, aceita rapidamente. Perfil D: foco em resultado, sem tempo a perder."
     },
     {
       name:"Fábio Teixeira", initials:"FT", city:"Curitiba", shop:"FT Barber Shop",
       desc:"Interessado no Cash Barber mas sem CNPJ ainda · Perfil I",
       disc:"I",
-      contexto:"Trabalha sozinho em espaço alugado. Fatura R$7k/mês. SEM CNPJ — está como MEI de outra área, não de barbearia. Se cadastrou animado depois de ver o Rafa.",
+      contexto:"Trabalha sozinho em espaço alugado. Fatura R$7k/mês. SEM CNPJ de nenhuma área — nunca abriu empresa, opera totalmente no informal. Se cadastrou animado depois de ver o Rafa.",
       dor:"Quer profissionalizar mas não tem estrutura jurídica.",
-      objecoes:["Ainda não tenho CNPJ de barbearia","Posso começar assim mesmo?"],
-      comportamento:"Empolgado e comunicativo. Quando o SDR perguntar sobre CNPJ, confirme que não tem CNPJ de barbearia. Reaja com frustração leve — queria muito participar. Se o SDR comunicar bem que não está qualificado, orientar sobre abertura de MEI e encerrar com cordialidade, aceite bem e agradeça. Se o SDR cortar sem explicar ou tentar agendar mesmo assim, fique confuso. Perfil I: animado, emotivo."
+      objecoes:["Não tenho CNPJ nenhum","Posso começar assim mesmo?"],
+      comportamento:"Empolgado e comunicativo. Quando o SDR perguntar sobre CNPJ, confirme que não tem nenhum CNPJ. Reaja com frustração leve — queria muito participar. Se o SDR comunicar que precisa de qualquer CNPJ ativo (não precisa ser de barbearia) e orientar sobre abertura de MEI, aceite bem e agradeça. Se o SDR cortar sem explicar ou tentar agendar mesmo assim, fique confuso. Perfil I: animado, emotivo."
     },
     {
       name:"Marcos Vinicius", initials:"MV", city:"Almirante Tamandaré", shop:"MV Cuts",
@@ -327,7 +327,7 @@ const PERSONAS = {
       contexto:"4 barbeiros, fatura R$28k/mês. CNPJ ativo. Viu o Lincoln mas já tentou implantar assinatura por conta própria há 1 ano e fracassou — poucos clientes aderiram e ele desistiu. Se cadastrou por insistência de um amigo.",
       dor:"Quer previsibilidade mas desacredita que assinatura funciona na prática.",
       objecoes:["Já tentei assinatura e não funcionou","O que vocês fazem de diferente?","Quantos clientes eu preciso ter na assinatura pra valer?"],
-      comportamento:"Cético e direto. Não é mal educado mas questiona tudo. Quer entender o que é diferente do que já tentou. Se o SDR ouvir a experiência anterior com empatia e conectar à consultoria como caminho para entender o que deu errado, abre. Perfil C: analítico, quer provas."
+      comportamento:"Cético e direto. Se perguntado sobre sistema, diga que tentou assinatura por conta própria e não funcionou — disposição para mudar existe mas precisa de convencimento. Se o SDR ouvir a experiência anterior com empatia e mostrar que é diferente, abre. Perfil C: analítico, quer provas."
     },
     {
       name:"Dênis Carvalho", initials:"DC", city:"Fazenda Rio Grande", shop:"Den's Barber",
@@ -342,7 +342,7 @@ const PERSONAS = {
       name:"Márcio Lima", initials:"ML", city:"Piraquara", shop:"Márcio's Cuts",
       desc:"Viu o Lincoln, muito interessado mas sem CNPJ · Perfil S",
       disc:"S",
-      contexto:"2 barbeiros contratados informalmente. Fatura R$16k/mês. SEM CNPJ — nunca abriu empresa, tudo informal. Viu o Lincoln e ficou animado com o Cash Barber mas não tem CNPJ.",
+      contexto:"2 barbeiros contratados informalmente. Fatura R$16k/mês. SEM CNPJ de nenhuma área — nunca abriu empresa, tudo informal. Viu o Lincoln e ficou animado com o Cash Barber mas não tem CNPJ.",
       dor:"Opera no informal, sem gestão, sem controle, tudo na cabeça.",
       objecoes:["Mas eu não tenho CNPJ","Dá pra começar sem empresa aberta?","E se eu abrir o CNPJ agora?"],
       comportamento:"Calmo e receptivo. Quando o SDR perguntar sobre CNPJ, confirme que não tem — tudo no informal. Se o SDR comunicar com respeito que precisa do CNPJ, orientar sobre abertura de MEI e encerrar com cordialidade, fique satisfeito e agradeça. Se o SDR encerrar sem explicar nada, fique confuso. Perfil S: boa vontade, precisa de direção."
@@ -673,10 +673,11 @@ endBtn.addEventListener("click", async () => {
     "- A marca que o lead conhece é Cash Barber / Lincoln / Rapha — correto o SDR usar qualquer dessas na abertura.\n" +
     "- Faturamento vem pré-preenchido no card — SDR CONFIRMA na call, não pergunta do zero.\n" +
     "- Cidade e nome da barbearia já estão no card — não cobrar.\n" +
-    "- Sistema atual, sócio, se ainda corta cabelo = opcionais — não deflata se não perguntar.\n" +
-    "- CNPJ é obrigatório confirmar. Se fat < R$10k: obrigatório validar se tem R$300 para investir.\n" +
+    "- Sistema atual e disposição para mudar = OBRIGATÓRIOS. Lead satisfeito com sistema e sem disposição = não vai para a consultoria.\n" +
+    "- Sócio, se ainda corta cabelo = opcionais — não deflata se não perguntar.\n" +
+    "- CNPJ é obrigatório confirmar — qualquer CNPJ ativo serve, não precisa ser de barbearia. Se fat < R$10k: obrigatório validar se tem R$300 para investir.\n" +
     "- Objetivo da call: agendar consultoria GRATUITA — SDR não vende produto.\n" +
-    "- DESQUALIFICADORES: sem CNPJ ou fat<R$10k sem R$300 = não agenda. Avaliar se SDR identificou, comunicou com respeito e encerrou bem.\n\n" +
+    "- DESQUALIFICADORES: sem CNPJ de nenhuma área = não agenda. Fat<R$10k sem R$300 disponível = não agenda. Avaliar se SDR identificou, comunicou com respeito e encerrou bem.\n\n" +
     "ESPONTANEIDADE DA DOR (regra crítica):\n" +
     "- Dor ESPONTÂNEA = lead falou sem ser induzido ou após pergunta aberta. Vale mais.\n" +
     "- Dor INDUZIDA = SDR sugeriu o problema antes de perguntar, lead respondeu sim/não. Vale menos.\n" +
@@ -697,11 +698,15 @@ endBtn.addEventListener("click", async () => {
     "4-6: Perguntas genéricas ou fechadas, aceitou resposta superficial.\n" +
     "0-3: Não investigou, ou SDR sugeriu o problema antes de perguntar.\n" +
     "PENALIZAR: SDR que falou mais de 3 frases seguidas sem perguntar nada.\n\n" +
-    "C3 — QUALIFICAÇÃO (0-10)\n" +
-    "10: Confirmou faturamento, CNPJ, estrutura. Se fat<10k validou R$300.\n" +
-    "7-9: Confirmou os principais mas esqueceu algum item.\n" +
-    "4-6: Qualificação superficial ou incompleta.\n" +
-    "0-3: Não qualificou ou ignorou desqualificador claro.\n\n" +
+    "C3 — QUALIFICAÇÃO (0-10)\\n" +
+    "10: Confirmou faturamento, CNPJ, estrutura, sistema atual, disposição para mudar. Se fat<10k validou R$300.\\n" +
+    "7-9: Confirmou os principais mas esqueceu 1 item.\\n" +
+    "4-6: Qualificação incompleta ou superficial.\\n" +
+    "0-3: Não qualificou ou ignorou desqualificador claro.\\n" +
+    "REGRAS:\\n" +
+    "- Sistema atual = OBRIGATÓRIO perguntar. Não perguntou = deflata.\\n" +
+    "- Disposição para mudar = importante perguntar mas não é bloqueador. Não perguntou = pontua com dica de como abordar na próxima.\\n" +
+    "- Se lead demonstrou baixa disposição e SDR mandou para consultoria mesmo assim = pontua e dá dica de como deveria ter contornado (ex: mostrar custo da inação, conectar à dor, criar urgência).\\n\\n" +
     "C4 — CONEXÃO DOR → CONSULTORIA (0-10)\n" +
     "10: Retomou a dor real identificada e conectou diretamente à consultoria com urgência.\n" +
     "7-9: Conectou mas de forma genérica ou sem urgência real.\n" +
