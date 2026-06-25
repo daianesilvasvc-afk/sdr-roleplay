@@ -666,34 +666,38 @@ endBtn.addEventListener("click", async () => {
     "DISC: " + persona.disc + " | Comportamento: " + persona.comportamento.substring(0,120) + "...\n";
 
   const evalPrompt =
-    "Avaliador de pré-vendas Podium. Avalie o SDR abaixo.\n" +
+    "Você é um avaliador de pré-vendas da Podium Educação. Avalie o SDR de forma JUSTA e CALIBRADA.\n" +
     gabarito + "\n" +
-    "REGRAS:\n" +
-    "- Cash Barber/Lincoln/Rapha na abertura = CORRETO (não penalizar).\n" +
-    "- Faturamento vem pré-preenchido no card — SDR confirma na call, não pergunta do zero.\n" +
-    "- Perguntar se ainda corta cabelo = CORRETO (qualificação de operação).\n" +
-    "- Objetivo: agendar consultoria GRATUITA. SDR não vende produto.\n" +
-    "- DESQUALIFICADORES: sem CNPJ ativo = não pode agendar. Faturamento <R$10k sem R$300 = não pode agendar.\n" +
-    "- Quando há desqualificador, avalie o SDR em 3 pontos:\n" +
-    "  1. Identificou o desqualificador? (perguntou CNPJ / validou caixa mínimo)\n" +
-    "  2. Comunicou com respeito que o lead não está qualificado para a reunião?\n" +
-    "  3. Contornou e encerrou bem? CNPJ: orientou abrir MEI e encerrou a call com cordialidade. Caixa: tentou entender se há outra forma de viabilizar (ex: sócio, outro momento) e se não houver, encerrou com respeito — SEM propor follow-up ou reagendamento.\n" +
-    "- SDR que agendou mesmo com desqualificador = erro grave na E6.\n" +
-    
-    "- SDR que identificou, comunicou bem e encerrou com cordialidade = elogiar especificamente.\n\n" +
-    "ETAPAS (avaliar 0-10):\n" +
-    "E1-Abertura: nome, marca reconhecida pelo lead, motivo, objetivo da call.\n" +
-    "E2-Motivo busca: perguntou o que chamou atenção (assinatura/gestão/comissão/expansão).\n" +
-    "E3-Qualificação: coletou objetivo, operação (corta cabelo?), estrutura (sozinho ou tem colaboradores), CNPJ, sistema atual. Se fat<10k: validou R$300. NÃO cobrar: cidade, nome da barbearia (já estão no card). Sócio só é relevante se o lead mencionar — não é dado obrigatório.\n" +
-    "E4-Dor: extraiu dor do que o lead falou (não de pergunta direta).\n" +
-    "E5-Conexão: conectou dor à consultoria, gerou urgência.\n" +
-    "E6-Fechamento: assumiu próximo passo sem perguntar 'quer agendar?'.\n" +
-    "E7-Tempo: turnos SDR=" + numTurnos + " (≤7=10, 8-12=7, >12=4).\n\n" +
-    "Responda SOMENTE este JSON (strings curtas e diretas):\n" +
+    "REGRAS DO PROCESSO:\n" +
+    "- Cash Barber/Lincoln/Rapha na abertura = CORRETO.\n" +
+    "- Faturamento vem pré-preenchido no card — SDR confirma, não pergunta do zero.\n" +
+    "- Cidade e nome da barbearia já estão no card — NÃO cobrar.\n" +
+    "- Perguntar se ainda corta cabelo = válido mas OPCIONAL — não deflata se não perguntar.\n" +
+    "- Sistema atual = OPCIONAL — não deflata se não perguntar.\n" +
+    "- Sócio = OPCIONAL — não deflata se não perguntar nem se o lead mencionar espontaneamente.\n" +
+    "- Objetivo da call: agendar consultoria GRATUITA. SDR não vende produto.\n" +
+    "- DESQUALIFICADORES: sem CNPJ = não agenda. Fat<R$10k sem R$300 = não agenda.\n" +
+    "  Avaliar se SDR: 1) identificou, 2) comunicou com respeito, 3) contornou e encerrou bem.\n" +
+    "- SDR que agendou com lead desqualificado = erro grave no E6.\n\n" +
+    "ETAPAS (avaliar 0-10 cada):\n" +
+    "E1-Abertura: se apresentou, disse a marca, explicou motivo e objetivo da call.\n" +
+    "E2-Motivo da busca: perguntou o que chamou atenção do lead.\n" +
+    "E3-Qualificação: descobriu objetivo do dono, estrutura (colaboradores), CNPJ. Se fat<10k: validou R$300. NÃO penalizar ausência de: sistema, sócio, se corta cabelo.\n" +
+    "E4-Identificação da dor: extraiu a dor principal do que o lead falou.\n" +
+    "E5-Conexão: conectou a dor à consultoria e gerou interesse/urgência.\n" +
+    "E6-Fechamento: assumiu próximo passo sem perguntar 'quer agendar?'. Ou tratou bem o desqualificador.\n" +
+    "E7-Tempo: apenas INFORMATIVO — registre quantos turnos foram e classifique (ótimo/bom/longo), mas NÃO use para reduzir nota. Coloque observação no pm se foi muito longo.\n\n" +
+    "CALIBRAÇÃO IMPORTANTE:\n" +
+    "- Um SDR que fez rapport, qualificou o básico, identificou a dor e agendou merece nota entre 7-9 em cada etapa cumprida.\n" +
+    "- Só dê notas baixas (abaixo de 5) se a etapa foi claramente ignorada ou executada de forma errada.\n" +
+    "- Não invente erros. Só aponte erros que realmente prejudicaram a call.\n" +
+    "- Pontos fortes devem ser genuínos e específicos — se o SDR foi bem, diga exatamente o que fez bem.\n\n" +
+    "Turnos do SDR: " + numTurnos + "\n\n" +
+    "Responda SOMENTE JSON sem markdown:\n" +
     '{"notas":{"e1":0,"e2":0,"e3":0,"e4":0,"e5":0,"e6":0,"e7":0},' +
-    '"nd":["dado não coletado"],' +
-    '"er":[{"m":"T1","e":"erro","d":"correto"}],' +
-    '"pf":"pontos fortes ou vazio","pm":"melhorias","rg":"veredicto"}\n' +
+    '"nd":["dado obrigatório não coletado"],' +
+    '"er":[{"m":"T1","e":"erro real","d":"como deveria ter feito"}],' +
+    '"pf":"pontos fortes genuínos e específicos","pm":"melhorias práticas + observação de tempo se necessário","rg":"veredicto justo em uma frase"}\n' +
     "CONVERSA:\n" + transcript;
 
   try {
