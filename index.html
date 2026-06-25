@@ -307,7 +307,7 @@ const PERSONAS = {
       contexto:"Trabalha sozinho em espaço alugado. Fatura R$7k/mês. SEM CNPJ — está como MEI de outra área, não de barbearia. Se cadastrou animado depois de ver o Rafa.",
       dor:"Quer profissionalizar mas não tem estrutura jurídica.",
       objecoes:["Ainda não tenho CNPJ de barbearia","Posso começar assim mesmo?"],
-      comportamento:"Empolgado e comunicativo. Quer muito a consultoria. MAS não tem CNPJ ativo de barbearia — o SDR precisa descobrir isso na qualificação e saber lidar com esse desqualificador. Perfil I: animado, fala muito."
+      comportamento:"Empolgado e comunicativo. Quando o SDR perguntar sobre CNPJ, confirme que não tem CNPJ de barbearia. Reaja com frustração leve — queria muito participar. Se o SDR comunicar bem que não está qualificado, orientar sobre abertura de MEI e encerrar com cordialidade, aceite bem e agradeça. Se o SDR cortar sem explicar ou tentar agendar mesmo assim, fique confuso. Perfil I: animado, emotivo."
     },
     {
       name:"Marcos Vinicius", initials:"MV", city:"Almirante Tamandaré", shop:"MV Cuts",
@@ -316,7 +316,7 @@ const PERSONAS = {
       contexto:"Trabalha sozinho. Fatura R$6k/mês. CNPJ ativo. Se cadastrou depois de ver depoimento de cliente Cash Barber. Muito interessado mas financeiramente apertado.",
       dor:"Sem recorrência, depende de indicação, mês muito irregular.",
       objecoes:["Tô num momento difícil financeiramente","Quanto custa mesmo?"],
-      comportamento:"Calmo e um pouco receoso com dinheiro. Quer a consultoria mas está apertado. O SDR precisa descobrir o faturamento (abaixo de R$10k) e validar se tem R$300 para investir — esse é o ponto crítico desta persona. Perfil S: cauteloso, honesto sobre limitações."
+      comportamento:"Calmo e honesto. Quando o SDR validar caixa mínimo, diga que está muito apertado e não tem R$300 agora. Se o SDR comunicar com respeito que não está qualificado, tentar entender se há outra forma de viabilizar e encerrar com cordialidade, aceite bem e agradeça. Se o SDR pressionar ou insistir em agendar mesmo assim, fique desconfortável. Perfil S: cauteloso, sensível à pressão."
     },
   ],
   dificil: [
@@ -336,7 +336,7 @@ const PERSONAS = {
       contexto:"Trabalha sozinho. Fatura R$5.5k/mês. CNPJ ativo. Viu o Rafa mas não acredita que o modelo funciona para barbearia pequena como a dele. Se cadastrou por curiosidade.",
       dor:"Clientela instável, sem recorrência, fatura abaixo de R$10k.",
       objecoes:["Isso é pra barbearia grande né?","Quanto custa?","Tenho poucos clientes, vai funcionar?"],
-      comportamento:"Resistente e pragmático. Fatura R$5.5k — o SDR precisa descobrir isso e validar se tem R$300 para investir. É o desqualificador central desta persona. Se tiver R$300, a consultoria pode seguir. Se não tiver, é desqualificado. Perfil C: racional, precisa de lógica."
+      comportamento:"Resistente e pragmático. Quando o SDR validar caixa, confirme que não tem R$300 disponível — tudo está no negócio. Se o SDR explicar claramente que sem esse investimento mínimo não consegue aproveitar a consultoria, tentar entender se há alternativa e encerrar com respeito, aceite com racionalidade. Se o SDR tentar empurrar mesmo assim, questione o motivo. Perfil C: racional, precisa de lógica para aceitar o não."
     },
     {
       name:"Márcio Lima", initials:"ML", city:"Piraquara", shop:"Márcio's Cuts",
@@ -345,7 +345,7 @@ const PERSONAS = {
       contexto:"2 barbeiros contratados informalmente. Fatura R$16k/mês. SEM CNPJ — nunca abriu empresa, tudo informal. Viu o Lincoln e ficou animado com o Cash Barber mas não tem CNPJ.",
       dor:"Opera no informal, sem gestão, sem controle, tudo na cabeça.",
       objecoes:["Mas eu não tenho CNPJ","Dá pra começar sem empresa aberta?","E se eu abrir o CNPJ agora?"],
-      comportamento:"Calmo e receptivo mas sem CNPJ — desqualificador central. O SDR precisa descobrir isso na qualificação. Pode orientar sobre abertura de MEI mas não pode avançar para consultoria sem CNPJ. Perfil S: boa vontade, mas limitação real."
+      comportamento:"Calmo e receptivo. Quando o SDR perguntar sobre CNPJ, confirme que não tem — tudo no informal. Se o SDR comunicar com respeito que precisa do CNPJ, orientar sobre abertura de MEI e encerrar com cordialidade, fique satisfeito e agradeça. Se o SDR encerrar sem explicar nada, fique confuso. Perfil S: boa vontade, precisa de direção."
     },
     {
       name:"André Souza", initials:"AS", city:"Curitiba", shop:"André Barber Studio",
@@ -501,6 +501,7 @@ function buildSystem(p) {
     "- Não entregue sua dor de graça — deixe o SDR descobrir fazendo perguntas.\n" +
     "- Só use objeções se o SDR empurrar produto sem ouvir ou pular etapas.\n" +
     "- Se o SDR qualificar bem, identificar sua dor e conectar à consultoria, aceite o agendamento naturalmente.\n" +
+    "- Se o seu comportamento indicar que você é um lead DESQUALIFICADO (sem CNPJ ou sem R$300), NÃO aceite o agendamento mesmo que o SDR insista — mantenha sua limitação real.\n" +
     "- Se o SDR ficar mais de 3 turnos sem te perguntar nada, fique impaciente."
   );
 }
@@ -511,7 +512,7 @@ async function callAPI(messages, system) {
   const resp = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 2000, system, messages })
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 8000, system, messages })
   });
   const data = await resp.json();
   if (data.error) throw new Error(data.error.message);
@@ -654,60 +655,88 @@ endBtn.addEventListener("click", async () => {
 
   const transcript = history.map(m => (m.role === "user" ? "SDR" : "Barbeiro (" + persona.name + ")") + ": " + m.content).join("\n");
   const numTurnos = history.filter(m => m.role === "user").length;
+  // Extrair faturamento e CNPJ do contexto para o gabarito
+  const fatGab = (persona.contexto.match(/[Ff]atura\s+(R\$[\d.,]+k?\/mês)/) || [])[1] || "não informado";
+  const cnpjGab = persona.contexto.includes("SEM CNPJ") ? "NÃO tem CNPJ" : "tem CNPJ ativo";
+  const socioGab = persona.contexto.includes("sócio") ? "tem sócio" : "sem sócio";
   const gabarito =
-    "GABARITO DO LEAD (use para avaliar o que o SDR descobriu ou deixou de descobrir):\n" +
-    "- Nome: " + persona.name + "\n" +
-    "- Barbearia: " + persona.shop + " em " + persona.city + "\n" +
-    "- Contexto completo: " + persona.contexto + "\n" +
-    "- Dor principal: " + persona.dor + "\n" +
-    "- Perfil DISC: " + persona.disc + "\n" +
-    "- Objeções disponíveis: " + (persona.objecoes.join(", ") || "nenhuma") + "\n";
+    "GABARITO: " + persona.name + " | " + persona.shop + " | " + persona.city + "\n" +
+    "Faturamento: " + fatGab + " | CNPJ: " + cnpjGab + " | " + socioGab + "\n" +
+    "Dor: " + persona.dor + "\n" +
+    "DISC: " + persona.disc + " | Comportamento: " + persona.comportamento.substring(0,120) + "...\n";
 
   const evalPrompt =
-    "Você é o gestor de pré-vendas da Podium Educação avaliando uma call de SDR.\n" +
-    gabarito +
-    "CONTEXTO COMERCIAL IMPORTANTE:\n" +
-    "- A empresa por trás é a Podium Educação, mas o lead chegou pelo Cash Barber, pelo Lincoln ou pelo Rapha.\n" +
-    "- É CORRETO o SDR se apresentar como 'falo do Cash Barber', 'sou da equipe do Lincoln' ou 'sou da equipe do Rapha'.\n" +
-    "- Não penalize o SDR por não mencionar 'Podium' — a marca que o lead conhece é Cash Barber / Lincoln / Rapha.\n" +
-    "- O objetivo da call é agendar uma CONSULTORIA GRATUITA — o SDR NÃO vende produto, apenas qualifica e agenda.\n" +
-    "- O FATURAMENTO já vem preenchido no card do lead antes da ligação — o SDR não precisa perguntar, apenas confirmar se houver dúvida. NÃO penalize o SDR por não perguntar faturamento.\n" +
-    "- Perguntar se o dono ainda corta cabelo (atua como barbeiro) É CORRETO e faz parte da qualificação de operação — não penalize isso.\n\n" +
-    "SCRIPT PODIUM (7 etapas obrigatórias):\n" +
-    "E1-Abertura: apresentação do SDR, da marca que o lead reconhece (Cash Barber/Lincoln/Rapha), motivo do contato e objetivo da conversa.\n" +
-    "E2-Motivo da busca: perguntar o que chamou atenção do lead (assinatura, gestão, comissão, expansão, fidelização, sair da cadeira).\n" +
-    "E3-Qualificação completa — o SDR PRECISA descobrir perguntando:\n" +
-    "   • Objetivo do dono (sair da cadeira? expandir? organizar gestão?)\n" +
-    "   • Operação: ainda corta cabelo? pretende sair da cadeira? (VÁLIDO e importante)\n" +
-    "   • Estrutura: trabalha sozinho ou tem colaboradores? quantos?\n" +
-    "   • Tem sócio?\n" +
-    "   • CNPJ ativo (sim/não)\n" +
-    "   • Sistema atual\n" +
-    "   • Faturamento: vem pré-preenchido no card — o SDR confirma na call (ex: Vi aqui que você fatura em torno de X, é isso mesmo?) e não pergunta do zero\n" +
-    "   • Se faturamento confirmado < R$10k: validar se tem pelo menos R$300 para investir\n" +
-    "E4-Identificação da dor: extrair a dor principal com base no que o lead falou — não de pergunta direta.\n" +
-    "E5-Conectar dor à consultoria: relacionar a dor identificada ao que será tratado. Gerar urgência e interesse.\n" +
-    "E6-Fechamento: assumir o próximo passo. NUNCA perguntar 'quer agendar?' ou 'gostaria de participar?'. Usar escassez e controle de agenda.\n" +
-    "E7-Tempo: até 7 turnos=excelente, 8-12=boa, acima 12=perigosa.\n\n" +
-    "Turnos do SDR nesta call: " + numTurnos + "\n\n" +
-    "INSTRUÇÕES DE AVALIAÇÃO:\n" +
-    "- Compare o que o SDR descobriu com o gabarito do lead.\n" +
-    "- Liste apenas dados que o SDR REALMENTE precisava perguntar e não perguntou (excluir faturamento).\n" +
-    "- Liste erros REAIS — não invente erros por terminologia da empresa ou por perguntas válidas de qualificação.\n" +
-    "- Seja preciso: só aponte erro se realmente prejudicou a call.\n" +
-    "- Pontos fortes apenas se merecer de verdade.\n\n" +
-    "Responda SOMENTE JSON válido sem markdown:\n" +
+    "Avaliador de pré-vendas Podium. Avalie o SDR abaixo.\n" +
+    gabarito + "\n" +
+    "REGRAS:\n" +
+    "- Cash Barber/Lincoln/Rapha na abertura = CORRETO (não penalizar).\n" +
+    "- Faturamento vem pré-preenchido no card — SDR confirma na call, não pergunta do zero.\n" +
+    "- Perguntar se ainda corta cabelo = CORRETO (qualificação de operação).\n" +
+    "- Objetivo: agendar consultoria GRATUITA. SDR não vende produto.\n" +
+    "- DESQUALIFICADORES: sem CNPJ ativo = não pode agendar. Faturamento <R$10k sem R$300 = não pode agendar.\n" +
+    "- Quando há desqualificador, avalie o SDR em 3 pontos:\n" +
+    "  1. Identificou o desqualificador? (perguntou CNPJ / validou caixa mínimo)\n" +
+    "  2. Comunicou com respeito que o lead não está qualificado para a reunião?\n" +
+    "  3. Contornou e encerrou bem? CNPJ: orientou abrir MEI e encerrou a call com cordialidade. Caixa: tentou entender se há outra forma de viabilizar (ex: sócio, outro momento) e se não houver, encerrou com respeito — SEM propor follow-up ou reagendamento.\n" +
+    "- SDR que agendou mesmo com desqualificador = erro grave na E6.\n" +
+    "- SDR que propôs follow-up ou reagendamento em vez de encerrar = erro (processo não prevê isso).\n" +
+    "- SDR que identificou, comunicou bem e encerrou com cordialidade = elogiar especificamente.\n\n" +
+    "ETAPAS (avaliar 0-10):\n" +
+    "E1-Abertura: nome, marca reconhecida pelo lead, motivo, objetivo da call.\n" +
+    "E2-Motivo busca: perguntou o que chamou atenção (assinatura/gestão/comissão/expansão).\n" +
+    "E3-Qualificação: coletou objetivo, operação (corta cabelo?), estrutura, colaboradores, sócio, CNPJ, sistema atual. Se fat<10k: validou R$300.\n" +
+    "E4-Dor: extraiu dor do que o lead falou (não de pergunta direta).\n" +
+    "E5-Conexão: conectou dor à consultoria, gerou urgência.\n" +
+    "E6-Fechamento: assumiu próximo passo sem perguntar 'quer agendar?'.\n" +
+    "E7-Tempo: turnos SDR=" + numTurnos + " (≤7=10, 8-12=7, >12=4).\n\n" +
+    "Responda SOMENTE este JSON (strings curtas e diretas):\n" +
     '{"notas":{"e1":0,"e2":0,"e3":0,"e4":0,"e5":0,"e6":0,"e7":0},' +
-    '"nd":["dado não coletado 1"],' +
-    '"er":[{"m":"turno X","e":"erro cometido","d":"como deveria ter feito"}],' +
-    '"pf":"pontos fortes reais ou string vazia",' +
-    '"pm":"melhorias específicas e praticáveis",' +
-    '"rg":"veredicto em uma frase"}\n' +
-    "Conversa:\n" + transcript;
+    '"nd":["dado não coletado"],' +
+    '"er":[{"m":"T1","e":"erro","d":"correto"}],' +
+    '"pf":"pontos fortes ou vazio","pm":"melhorias","rg":"veredicto"}\n' +
+    "CONVERSA:\n" + transcript;
 
   try {
-    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON.");
-    const result = JSON.parse(raw.replace(/```json|```/g, "").trim());
+    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.");
+    let cleaned = raw.replace(/```json|```/g, "").trim();
+
+    // Tenta parse direto
+    let result;
+    try {
+      result = JSON.parse(cleaned);
+    } catch(parseErr) {
+      // JSON truncado — tenta fechar o objeto
+      try {
+        // Fecha strings abertas, arrays e objeto
+        let fixed = cleaned;
+        // Conta chaves e colchetes abertos
+        let braces = 0, brackets = 0, inStr = false, escape = false;
+        for (let i = 0; i < fixed.length; i++) {
+          const c = fixed[i];
+          if (escape) { escape = false; continue; }
+          if (c === "\\" && inStr) { escape = true; continue; }
+          if (c === '"' && !escape) { inStr = !inStr; continue; }
+          if (inStr) continue;
+          if (c === "{") braces++;
+          else if (c === "}") braces--;
+          else if (c === "[") brackets++;
+          else if (c === "]") brackets--;
+        }
+        if (inStr) fixed += '"';
+        while (brackets > 0) { fixed += "]"; brackets--; }
+        while (braces > 0) { fixed += "}"; braces--; }
+        result = JSON.parse(fixed);
+      } catch(e2) {
+        // Fallback: extrai o que conseguir
+        result = {
+          notas: {}, n: {},
+          nd: [], er: [],
+          pf: "",
+          pm: "Não foi possível gerar o feedback completo — a call foi muito longa. Tente uma call mais curta.",
+          rg: "Avaliação incompleta por tamanho da call."
+        };
+      }
+    }
     renderScore(result); setStatus("Avaliação concluída!");
   } catch(e) {
     setStatus("Erro ao avaliar: " + e.message);
