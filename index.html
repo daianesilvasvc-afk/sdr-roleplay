@@ -469,7 +469,7 @@ function renderPersona(p) {
 
   document.getElementById("persona-avatar").textContent = p.initials;
   document.getElementById("p-name").textContent = p.name;
-  document.getElementById("p-desc").textContent = p.city + " · " + fat + " · DISC " + p.disc;
+  document.getElementById("p-desc").textContent = p.city + " · " + fat;
 
   const b = document.getElementById("difficulty-badge");
   const meta = DIFF_META[p.difficulty];
@@ -666,38 +666,67 @@ endBtn.addEventListener("click", async () => {
     "DISC: " + persona.disc + " | Comportamento: " + persona.comportamento.substring(0,120) + "...\n";
 
   const evalPrompt =
-    "Você é um avaliador de pré-vendas da Podium Educação. Avalie o SDR de forma JUSTA e CALIBRADA.\n" +
+    "Você é um analista de pré-vendas da Podium Educação avaliando uma simulação de SDR.\n" +
+    "Escreva o feedback na VOZ DO LÍDER, em segunda pessoa, direto com o SDR.\n\n" +
     gabarito + "\n" +
-    "REGRAS DO PROCESSO:\n" +
-    "- Cash Barber/Lincoln/Rapha na abertura = CORRETO.\n" +
-    "- Faturamento vem pré-preenchido no card — SDR confirma, não pergunta do zero.\n" +
-    "- Cidade e nome da barbearia já estão no card — NÃO cobrar.\n" +
-    "- Perguntar se ainda corta cabelo = válido mas OPCIONAL — não deflata se não perguntar.\n" +
-    "- Sistema atual = OPCIONAL — não deflata se não perguntar.\n" +
-    "- Sócio = OPCIONAL — não deflata se não perguntar nem se o lead mencionar espontaneamente.\n" +
-    "- Objetivo da call: agendar consultoria GRATUITA. SDR não vende produto.\n" +
-    "- DESQUALIFICADORES: sem CNPJ = não agenda. Fat<R$10k sem R$300 = não agenda.\n" +
-    "  Avaliar se SDR: 1) identificou, 2) comunicou com respeito, 3) contornou e encerrou bem.\n" +
-    "- SDR que agendou com lead desqualificado = erro grave no E6.\n\n" +
-    "ETAPAS (avaliar 0-10 cada):\n" +
-    "E1-Abertura: se apresentou, disse a marca, explicou motivo e objetivo da call.\n" +
-    "E2-Motivo da busca: perguntou o que chamou atenção do lead.\n" +
-    "E3-Qualificação: descobriu objetivo do dono, estrutura (colaboradores), CNPJ. Se fat<10k: validou R$300. NÃO penalizar ausência de: sistema, sócio, se corta cabelo.\n" +
-    "E4-Identificação da dor: extraiu a dor principal do que o lead falou.\n" +
-    "E5-Conexão: conectou a dor à consultoria e gerou interesse/urgência.\n" +
-    "E6-Fechamento: assumiu próximo passo sem perguntar 'quer agendar?'. Ou tratou bem o desqualificador.\n" +
-    "E7-Tempo: apenas INFORMATIVO — registre quantos turnos foram e classifique (ótimo/bom/longo), mas NÃO use para reduzir nota. Coloque observação no pm se foi muito longo.\n\n" +
-    "CALIBRAÇÃO IMPORTANTE:\n" +
-    "- Um SDR que fez rapport, qualificou o básico, identificou a dor e agendou merece nota entre 7-9 em cada etapa cumprida.\n" +
-    "- Só dê notas baixas (abaixo de 5) se a etapa foi claramente ignorada ou executada de forma errada.\n" +
-    "- Não invente erros. Só aponte erros que realmente prejudicaram a call.\n" +
-    "- Pontos fortes devem ser genuínos e específicos — se o SDR foi bem, diga exatamente o que fez bem.\n\n" +
-    "Turnos do SDR: " + numTurnos + "\n\n" +
-    "Responda SOMENTE JSON sem markdown:\n" +
-    '{"notas":{"e1":0,"e2":0,"e3":0,"e4":0,"e5":0,"e6":0,"e7":0},' +
-    '"nd":["dado obrigatório não coletado"],' +
-    '"er":[{"m":"T1","e":"erro real","d":"como deveria ter feito"}],' +
-    '"pf":"pontos fortes genuínos e específicos","pm":"melhorias práticas + observação de tempo se necessário","rg":"veredicto justo em uma frase"}\n' +
+    "CONTEXTO DO PROCESSO:\n" +
+    "- A marca que o lead conhece é Cash Barber / Lincoln / Rapha — correto o SDR usar qualquer dessas na abertura.\n" +
+    "- Faturamento vem pré-preenchido no card — SDR CONFIRMA na call, não pergunta do zero.\n" +
+    "- Cidade e nome da barbearia já estão no card — não cobrar.\n" +
+    "- Sistema atual, sócio, se ainda corta cabelo = opcionais — não deflata se não perguntar.\n" +
+    "- CNPJ é obrigatório confirmar. Se fat < R$10k: obrigatório validar se tem R$300 para investir.\n" +
+    "- Objetivo da call: agendar consultoria GRATUITA — SDR não vende produto.\n" +
+    "- DESQUALIFICADORES: sem CNPJ ou fat<R$10k sem R$300 = não agenda. Avaliar se SDR identificou, comunicou com respeito e encerrou bem.\n\n" +
+    "ESPONTANEIDADE DA DOR (regra crítica):\n" +
+    "- Dor ESPONTÂNEA = lead falou sem ser induzido ou após pergunta aberta. Vale mais.\n" +
+    "- Dor INDUZIDA = SDR sugeriu o problema antes de perguntar, lead respondeu sim/não. Vale menos.\n" +
+    "- Sempre identifique se a dor foi espontânea ou induzida no feedback.\n\n" +
+    "PROLIXIDADE:\n" +
+    "- Penalize se o SDR usou mais de 3 frases seguidas sem perguntar nada.\n" +
+    "- Penalize se explicou o produto antes de entender a dor.\n" +
+    "- Penalize se a abertura passou de 2 turnos sem engajar o lead.\n\n" +
+    "AVALIE EM 5 CRITÉRIOS (nota 0-10 cada):\n\n" +
+    "C1 — ABERTURA (0-10)\n" +
+    "10: Se apresentou, disse a marca, explicou motivo e objetivo com clareza e naturalidade.\n" +
+    "7-9: Fez tudo mas de forma mecânica ou muito longa.\n" +
+    "4-6: Faltou algum elemento ou foi confuso.\n" +
+    "0-3: Abertura ausente ou totalmente genérica.\n\n" +
+    "C2 — INVESTIGAÇÃO DA DOR (0-10)\n" +
+    "10: Identificou dor espontânea, aprofundou com pergunta aberta, desdobrou.\n" +
+    "7-9: Identificou dor mas parcialmente induzida, ou não desdobrou bem.\n" +
+    "4-6: Perguntas genéricas ou fechadas, aceitou resposta superficial.\n" +
+    "0-3: Não investigou, ou SDR sugeriu o problema antes de perguntar.\n" +
+    "PENALIZAR: SDR que falou mais de 3 frases seguidas sem perguntar nada.\n\n" +
+    "C3 — QUALIFICAÇÃO (0-10)\n" +
+    "10: Confirmou faturamento, CNPJ, estrutura. Se fat<10k validou R$300.\n" +
+    "7-9: Confirmou os principais mas esqueceu algum item.\n" +
+    "4-6: Qualificação superficial ou incompleta.\n" +
+    "0-3: Não qualificou ou ignorou desqualificador claro.\n\n" +
+    "C4 — CONEXÃO DOR → CONSULTORIA (0-10)\n" +
+    "10: Retomou a dor real identificada e conectou diretamente à consultoria com urgência.\n" +
+    "7-9: Conectou mas de forma genérica ou sem urgência real.\n" +
+    "4-6: Mencionou a consultoria sem retomar a dor.\n" +
+    "0-3: Não conectou ou apresentou a solução antes de entender a dor.\n\n" +
+    "C5 — FECHAMENTO (0-10)\n" +
+    "10: Assumiu o próximo passo com autoridade, sem perguntar 'quer agendar?', com escassez ou urgência real.\n" +
+    "7-9: Agendou mas de forma mecânica ou sem urgência.\n" +
+    "4-6: Tentou agendar mas recuou, ou perguntou se o lead quer.\n" +
+    "0-3: Não chegou ao fechamento, deixou em aberto ou aceitou 'vou pensar' sem contra-argumento.\n" +
+    "ATENÇÃO: Se lead era desqualificado — avaliar se SDR identificou, comunicou e encerrou bem.\n\n" +
+    "SCORE GERAL = média dos 5 critérios x 10 (0-100%).\n\n" +
+    "Turnos do SDR nesta call: " + numTurnos + "\n\n" +
+    "FORMATO DE SAÍDA — responda SOMENTE este JSON sem markdown:\n" +
+    '{"score":0,' +
+    '"criterios":{' +
+    '"c1":{"nota":0,"feedback":"voz do líder: o que fez certo (se houver) / o que errou / impacto","proximo":"Na próxima: [frase exata que deveria ter usado]"},' +
+    '"c2":{"nota":0,"feedback":"voz do líder + espontaneidade da dor identificada","proximo":"Na próxima: [frase exata]","dores":["dor 1","dor 2"],"espontaneidade":"ESPONTÂNEA ou INDUZIDA + explicação"},' +
+    '"c3":{"nota":0,"feedback":"voz do líder sobre qualificação","proximo":"Na próxima: [frase exata]","dados_faltantes":["dado 1"]},' +
+    '"c4":{"nota":0,"feedback":"voz do líder sobre conexão","proximo":"Na próxima: [frase exata]"},' +
+    '"c5":{"nota":0,"feedback":"voz do líder sobre fechamento","proximo":"Na próxima: [frase exata]"}},' +
+    '"prolixidade":{"detectada":false,"observacao":"onde falou demais e impacto"},' +
+    '"ponto_perda":{"houve":false,"observacao":"turno X — o que aconteceu e o que deveria ter feito"},' +
+    '"resumo_lider":"3-4 frases do líder: padrão identificado, onde é forte, onde é fraco, UM foco para a próxima call. Terminar com o foco. Ex: Próxima call, seu foco é um só: [X].",' +
+    '"veredicto":"frase de síntese do líder sobre a ligação inteira. Ex: Você agendou — mas deixou temperatura na mesa."}\n' +
     "CONVERSA:\n" + transcript;
 
   try {
@@ -749,59 +778,91 @@ endBtn.addEventListener("click", async () => {
 });
 
 function renderScore(result) {
-  // suporte a chaves compactas (nd/er/pf/pm/rg/n) e chaves longas (fallback)
-  const n = result.n || result.notas || {};
-  const keyMap = { e1:"e1_abertura", e2:"e2_motivo_busca", e3:"e3_qualificacao", e4:"e4_identificacao_dor", e5:"e5_conexao_consultoria", e6:"e6_fechamento", e7:"e7_tempo_call" };
+  const crit = result.criterios || {};
   const labels = {
-    e1:"E1 — Abertura", e2:"E2 — Motivo da busca", e3:"E3 — Qualificação",
-    e4:"E4 — Identificação da dor", e5:"E5 — Conectar dor à consultoria",
-    e6:"E6 — Fechamento", e7:"E7 — Tempo de call"
+    c1:"C1 — Abertura",
+    c2:"C2 — Investigação da dor",
+    c3:"C3 — Qualificação",
+    c4:"C4 — Conexão dor → consultoria",
+    c5:"C5 — Fechamento"
   };
-  const getN = k => Number(n[k] ?? n[keyMap[k]] ?? 0);
-  const total = Object.keys(labels).map(getN).reduce((a,b)=>a+b,0);
-  const max = Object.keys(labels).length * 10;
-  const col = total>=(max*0.7)?"#5cb85c":total>=(max*0.5)?"#f5c518":"#f87171";
 
-  let rows = "";
-  for (const [k,label] of Object.entries(labels)) {
-    const v = getN(k);
-    const c = v>=7?"#5cb85c":v>=5?"#f5c518":"#f87171";
-    rows += '<div class="crit-row">'+
-      '<span class="crit-label">'+label+'</span>'+
-      '<div class="bar-bg"><div class="bar-fg" style="width:'+(v*10)+'%;background:'+c+'"></div></div>'+
-      '<span class="crit-val" style="color:'+c+'">'+v+'/10</span></div>';
+  const score = Number(result.score || 0);
+  const scoreCol = score>=70?"#5cb85c":score>=50?"#f5c518":"#f87171";
+
+  // Veredicto
+  let html = '<div style="font-size:15px;font-style:italic;color:#aaa;margin-bottom:1.25rem;padding:0.75rem 1rem;background:#1a1a1a;border-radius:8px;border-left:3px solid #444">' +
+    '"' + (result.veredicto||"") + '"</div>';
+
+  // Score geral
+  html += '<div class="score-hero">' +
+    '<span class="big" style="color:'+scoreCol+'">'+score+'</span>' +
+    '<span class="denom">%</span>' +
+    '<span class="verdict" style="color:#666;font-size:13px;margin-left:8px">score geral</span>' +
+    '</div>';
+
+  // Critérios
+  html += '<div class="criteria" style="margin-bottom:1.5rem;">';
+  for (const [k, label] of Object.entries(labels)) {
+    const c = crit[k] || {};
+    const v = Number(c.nota || 0);
+    const col = v>=7?"#5cb85c":v>=5?"#f5c518":"#f87171";
+    html += '<div class="crit-row">' +
+      '<span class="crit-label">'+label+'</span>' +
+      '<div class="bar-bg"><div class="bar-fg" style="width:'+(v*10)+'%;background:'+col+'"></div></div>' +
+      '<span class="crit-val" style="color:'+col+'">'+v+'/10</span>' +
+      '</div>';
+  }
+  html += '</div>';
+
+  // Feedback por critério
+  html += '<div class="fb-block"><h4 style="margin-bottom:12px">📋 Feedback por etapa</h4></div>';
+  for (const [k, label] of Object.entries(labels)) {
+    const c = crit[k] || {};
+    const v = Number(c.nota || 0);
+    const col = v>=7?"#5cb85c":v>=5?"#f5c518":"#f87171";
+    html += '<div style="margin-bottom:16px;padding:12px 14px;background:#161616;border-radius:10px;border-left:3px solid '+col+'">' +
+      '<div style="font-size:13px;font-weight:500;color:#fff;margin-bottom:6px">'+label+' — <span style="color:'+col+'">'+v+'/10</span></div>' +
+      '<div style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:8px">'+(c.feedback||"")+'</div>';
+
+    // Espontaneidade (só C2)
+    if (k === "c2" && c.espontaneidade) {
+      html += '<div style="font-size:12px;color:#a78bfa;margin-bottom:6px">🔍 Dor: '+(c.espontaneidade)+'</div>';
+    }
+    // Dores (C2)
+    if (k === "c2" && c.dores && c.dores.length) {
+      html += '<div style="font-size:12px;color:#888;margin-bottom:6px">Dores identificadas: '+(c.dores.join(", "))+'</div>';
+    }
+    // Dados faltantes (C3)
+    if (k === "c3" && c.dados_faltantes && c.dados_faltantes.length) {
+      html += '<div style="font-size:12px;color:#f87171;margin-bottom:6px">Não coletou: '+(c.dados_faltantes.join(", "))+'</div>';
+    }
+    // Próxima
+    if (c.proximo) {
+      html += '<div style="font-size:13px;color:#5cb85c;margin-top:4px">🛠 '+(c.proximo)+'</div>';
+    }
+    html += '</div>';
   }
 
-  const DADO_LABELS = {
-    objetivo:"Objetivo do dono", dor:"Dor principal", faturamento:"Faturamento mensal",
-    cnpj:"CNPJ ativo", estrutura:"Estrutura (sozinho/colaboradores)", socio:"Tem sócio?",
-    caixa_minimo:"Capacidade de investir R$300 (faturamento <10k)", sistema_atual:"Sistema atual"
-  };
-  const naoColetados = result.nd || result.dados_nao_coletados || [];
-  const erros = result.er || result.erros_cometidos || [];
-  const pontosFortes = result.pf || result.pontos_fortes || "";
-  const melhoria = result.pm || result.pontos_melhoria || "—";
-  const veredicto = result.rg || result.resumo_geral || "";
+  // Prolixidade
+  const prol = result.prolixidade || {};
+  if (prol.detectada) {
+    html += '<div class="fb-block fb-danger"><h4>⚠️ Prolixidade detectada</h4><p>'+(prol.observacao||"")+'</p></div>';
+  }
 
-  let dadosHTML = naoColetados.length
-    ? '<div class="fb-block fb-danger"><h4>📋 Dados obrigatórios não coletados ('+naoColetados.length+')</h4><ul>'+
-      naoColetados.map(d=>'<li>'+(DADO_LABELS[d]||d)+'</li>').join("")+'</ul></div>'
-    : '<div class="fb-block fb-success"><h4>📋 Todos os dados obrigatórios coletados ✅</h4></div>';
+  // Ponto de perda
+  const pp = result.ponto_perda || {};
+  if (pp.houve) {
+    html += '<div class="fb-block fb-danger"><h4>🚨 Ponto de perda do agendamento</h4><p>'+(pp.observacao||"")+'</p></div>';
+  }
 
-  let errosHTML = erros.length
-    ? '<div class="fb-block fb-danger"><h4>⚠️ Erros cometidos na call ('+erros.length+')</h4>'+
-      erros.map(e=>
-        '<div class="erro-item">'+
-          '<div class="erro-momento">'+(e.m||e.momento||"")+'</div>'+
-          '<div class="erro-desc">❌ '+(e.e||e.erro||"")+'</div>'+
-          '<div class="erro-fix">✏️ '+(e.d||e.deveria||"")+'</div>'+
-        '</div>'
-      ).join("")+'</div>'
-    : '<div class="fb-block fb-success"><h4>⚠️ Nenhum erro crítico identificado ✅</h4></div>';
-
-  const fortesHTML = pontosFortes
-    ? '<div class="fb-block"><h4>✅ Pontos fortes</h4><p>'+pontosFortes+'</p></div>' : '';
-  const melhoriaHTML = '<div class="fb-block"><h4>🎯 Como melhorar</h4><p>'+melhoria+'</p></div>';
+  // Resumo do líder
+  if (result.resumo_lider) {
+    html += '<div class="fb-block" style="margin-top:1.25rem;padding:1rem;background:#1a1a1a;border-radius:10px;border:0.5px solid #333">' +
+      '<h4 style="margin-bottom:8px">💬 Resumo do líder</h4>' +
+      '<p style="font-size:14px;line-height:1.75;color:#ccc">'+(result.resumo_lider)+'</p>' +
+      '</div>';
+  }
 
   const meta = DIFF_META[persona.difficulty];
   const sc = document.getElementById("scorecard");
@@ -809,18 +870,10 @@ function renderScore(result) {
   sc.innerHTML =
     '<h3>Avaliação — '+persona.name+
       ' <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:'+meta.bg+';color:'+meta.color+';margin-left:6px">'+meta.label+'</span>'+
-      ' <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#1a1a3a;color:#a78bfa;margin-left:4px">DISC '+persona.disc+'</span>'+
-    '</h3>'+
-    '<div class="score-hero">'+
-      '<span class="big" style="color:'+col+'">'+total+'</span>'+
-      '<span class="denom">/'+max+'</span>'+
-      '<span class="verdict">'+veredicto+'</span>'+
-    '</div>'+
-    '<div class="criteria">'+rows+'</div>'+
-    dadosHTML + errosHTML + fortesHTML + melhoriaHTML +
-    '<div class="score-actions">'+
-      '<button onclick="init()">↩ Repetir nível '+meta.label+'</button>'+
-      '<button onclick="goBack()">🎯 Escolher outro nível</button>'+
+    '</h3>' + html +
+    '<div class="score-actions">' +
+      '<button onclick="init()">↩ Repetir nível '+meta.label+'</button>' +
+      '<button onclick="goBack()">🎯 Escolher outro nível</button>' +
     '</div>';
   setTimeout(() => sc.scrollIntoView({ behavior:"smooth" }), 100);
 }
