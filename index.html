@@ -454,7 +454,7 @@ async function callAPI(messages, system) {
   const resp = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system, messages })
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 2000, system, messages })
   });
   const data = await resp.json();
   if (data.error) throw new Error(data.error.message);
