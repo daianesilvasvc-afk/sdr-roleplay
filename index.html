@@ -527,11 +527,16 @@ function buildSystem(p) {
 
 
 // ── API ──
-async function callAPI(messages, system) {
+async function callAPI(messages, system, opts) {
+  const o = opts || {};
+  const payload = { model: "claude-sonnet-4-6", max_tokens: o.max_tokens || 8000, system, messages };
+  // temperature so vai quando pedida — a persona continua criativa (default da API),
+  // a avaliacao roda em 0 para a mesma call sempre dar a mesma nota
+  if (typeof o.temperature === "number") payload.temperature = o.temperature;
   const resp = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 8000, system, messages })
+    body: JSON.stringify(payload)
   });
   const data = await resp.json();
   if (data.error) throw new Error(data.error.message);
@@ -666,6 +671,19 @@ async function getGreeting() {
 }
 
 // ── Avaliação ──
+// Extrai as notas dos 5 criterios. Retorna null se algum faltar ou estiver fora de 0-10.
+function notasDosCriterios(result) {
+  const crit = result && result.criterios;
+  if (!crit) return null;
+  const notas = [];
+  for (const k of ["c1", "c2", "c3", "c4", "c5"]) {
+    const n = crit[k] ? Number(crit[k].nota) : NaN;
+    if (!Number.isFinite(n) || n < 0 || n > 10) return null;
+    notas.push(n);
+  }
+  return notas;
+}
+
 endBtn.addEventListener("click", async () => {
   if (isProcessing) return;
   speechSynthesis.cancel();
@@ -717,16 +735,16 @@ endBtn.addEventListener("click", async () => {
     "4-6: Perguntas genéricas ou fechadas, aceitou resposta superficial.\n" +
     "0-3: Não investigou, ou SDR sugeriu o problema antes de perguntar.\n" +
     "PENALIZAR: SDR que falou mais de 3 frases seguidas sem perguntar nada.\n\n" +
-    "C3 — QUALIFICAÇÃO (0-10)\\n" +
-    "10: Confirmou faturamento, CNPJ, estrutura, sistema atual, disposição para mudar. Se fat<10k validou R$300.\\n" +
-    "7-9: Confirmou os principais mas esqueceu 1 item.\\n" +
-    "4-6: Qualificação incompleta ou superficial.\\n" +
-    "0-3: Não qualificou ou ignorou desqualificador claro.\\n" +
-    "REGRAS:\\n" +
-    "- CNPJ = primeiro dado a confirmar. Se não tem CNPJ, o SDR encerra a call ali — não há coleta dos demais dados. Nesse caso NÃO penalizar ausência de faturamento, estrutura, sistema ou disposição. Avaliar apenas se identificou o desqualificador, comunicou com respeito e encerrou bem.\\n" +
-    "- Sistema atual = OBRIGATÓRIO perguntar (quando a call segue normalmente). Não perguntou = deflata.\\n" +
-    "- Disposição para mudar = importante perguntar mas não é bloqueador. Não perguntou = pontua com dica de como abordar na próxima.\\n" +
-    "- Se lead demonstrou baixa disposição e SDR mandou para consultoria mesmo assim = pontua e dá dica de como deveria ter contornado (ex: mostrar custo da inação, conectar à dor, criar urgência).\\n\\n" +
+    "C3 — QUALIFICAÇÃO (0-10)\n" +
+    "10: Confirmou faturamento, CNPJ, estrutura, sistema atual, disposição para mudar. Se fat<10k validou R$300.\n" +
+    "7-9: Confirmou os principais mas esqueceu 1 item.\n" +
+    "4-6: Qualificação incompleta ou superficial.\n" +
+    "0-3: Não qualificou ou ignorou desqualificador claro.\n" +
+    "REGRAS:\n" +
+    "- CNPJ = primeiro dado a confirmar. Se não tem CNPJ, o SDR encerra a call ali — não há coleta dos demais dados. Nesse caso NÃO penalizar ausência de faturamento, estrutura, sistema ou disposição. Avaliar apenas se identificou o desqualificador, comunicou com respeito e encerrou bem.\n" +
+    "- Sistema atual = OBRIGATÓRIO perguntar (quando a call segue normalmente). Não perguntou = deflata.\n" +
+    "- Disposição para mudar = importante perguntar mas não é bloqueador. Não perguntou = pontua com dica de como abordar na próxima.\n" +
+    "- Se lead demonstrou baixa disposição e SDR mandou para consultoria mesmo assim = pontua e dá dica de como deveria ter contornado (ex: mostrar custo da inação, conectar à dor, criar urgência).\n\n" +
     "C4 — CONEXÃO DOR → CONSULTORIA (0-10)\n" +
     "10: Retomou a dor real identificada e conectou diretamente à consultoria com urgência.\n" +
     "7-9: Conectou mas de forma genérica ou sem urgência real.\n" +
@@ -755,7 +773,7 @@ endBtn.addEventListener("click", async () => {
     "CONVERSA:\n" + transcript;
 
   try {
-    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.");
+    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { temperature: 0 });
     let cleaned = raw.replace(/```json|```/g, "").trim();
 
     // Tenta parse direto
@@ -785,18 +803,23 @@ endBtn.addEventListener("click", async () => {
         while (braces > 0) { fixed += "}"; braces--; }
         result = JSON.parse(fixed);
       } catch(e2) {
-        // Fallback: extrai o que conseguir
-        result = {
-          notas: {}, n: {},
-          nd: [], er: [],
-          pf: "",
-          pm: "Não foi possível gerar o feedback completo — a call foi muito longa. Tente uma call mais curta.",
-          rg: "Avaliação incompleta por tamanho da call."
-        };
+        // Avaliacao truncada e irrecuperavel — NAO inventa resultado nem salva nota
+        throw new Error("a avaliação voltou incompleta (call muito longa). Nada foi salvo — refaça com uma call mais curta.");
       }
     }
+
+    // So aceita avaliacao com os 5 criterios pontuados — meia avaliacao nao vira nota
+    const notas = notasDosCriterios(result);
+    if (!notas) {
+      throw new Error("a avaliação não pontuou os 5 critérios. Nada foi salvo — refaça a simulação.");
+    }
+
+    // Score = media dos 5 criterios x 10, calculada aqui.
+    // O numero que o modelo devolve em "score" e ignorado: ja veio divergente da propria regua.
+    result.score = Math.round(notas.reduce((a, b) => a + b, 0) / notas.length * 10);
+
     renderScore(result); setStatus("Avaliação concluída!");
-    saveSimulationResult(result);
+    saveSimulationResult(result, transcript);
   } catch(e) {
     setStatus("Erro ao avaliar: " + e.message);
     endBtn.removeAttribute("disabled"); sessionEnded = false;
@@ -804,9 +827,9 @@ endBtn.addEventListener("click", async () => {
 });
 
 // ── Salva resultado no histórico central ──
-async function saveSimulationResult(result) {
+async function saveSimulationResult(result, transcript) {
   try {
-    await fetch(API_URL + "/save", {
+    const resp = await fetch(API_URL + "/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -819,11 +842,15 @@ async function saveSimulationResult(result) {
         criterios: result.criterios || {},
         resumo_lider: result.resumo_lider || "",
         veredicto: result.veredicto || "",
+        transcript: transcript || "",
       }),
     });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
   } catch (e) {
-    // Falha silenciosa — não deve travar a experiência do SDR
+    // Nao trava a experiencia do SDR, mas tambem nao some em silencio:
+    // sem esse aviso a nota evapora e ninguem fica sabendo.
     console.error("Erro ao salvar histórico:", e);
+    setStatus("Avaliação concluída — mas NÃO foi salva no histórico. Avise o gestor.");
   }
 }
 
