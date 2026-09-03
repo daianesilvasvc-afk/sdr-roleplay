@@ -161,8 +161,12 @@
   <div id="difficulty-screen">
     <div>
       <div class="screen-title">Simulador SDR — Modo Áudio</div>
-      <div class="screen-sub">Escolha o nível de dificuldade para iniciar a sessão.</div>
+      <div class="screen-sub">Digite seu nome e escolha o nível de dificuldade para iniciar a sessão.</div>
     </div>
+
+    <input id="sdr-name-input" type="text" placeholder="Seu nome" autocomplete="off"
+      style="width:100%;padding:12px 14px;font-size:14px;border-radius:10px;border:1.5px solid #2a2a2a;background:#1a1a1a;color:#e8e8e8;font-family:inherit;"
+      oninput="onNameInput()">
 
     <div class="diff-cards">
       <div class="diff-card" data-level="facil" onclick="selectDiff(this)">
@@ -374,7 +378,7 @@ const DIFF_RULES = {
 
 const API_URL = "https://withered-wildflower-db78.daiane-silvasvc.workers.dev";
 
-let selectedLevel = null, persona = null;
+let selectedLevel = null, persona = null, sdrName = "";
 let history = [], isProcessing = false, sessionEnded = false, turnCount = 0;
 let recognition = null, isListening = false;
 let voicePT = null;
@@ -386,19 +390,34 @@ const statusLbl = document.getElementById("status-label");
 const txPrev    = document.getElementById("transcript-preview");
 const endBtn    = document.getElementById("end-btn");
 
+// ── Nome do SDR ──
+function onNameInput() {
+  sdrName = document.getElementById("sdr-name-input").value.trim();
+  updateStartBtn();
+}
+
 // ── Seleção de dificuldade ──
 function selectDiff(card) {
   document.querySelectorAll(".diff-card").forEach(c => c.className = "diff-card");
   const lvl = card.dataset.level;
   card.classList.add("sel-" + lvl);
   selectedLevel = lvl;
+  updateStartBtn();
+}
+
+function updateStartBtn() {
   const btn = document.getElementById("start-btn");
-  btn.className = "ready";
-  btn.textContent = "Iniciar sessão →";
+  if (selectedLevel && sdrName) {
+    btn.className = "ready";
+    btn.textContent = "Iniciar sessão →";
+  } else {
+    btn.className = "";
+    btn.textContent = !sdrName ? "Digite seu nome para começar" : "Escolha um nível para começar";
+  }
 }
 
 function startSession() {
-  if (!selectedLevel) return;
+  if (!selectedLevel || !sdrName) return;
   document.getElementById("difficulty-screen").style.display = "none";
   document.getElementById("session-screen").style.display = "flex";
   init();
@@ -777,11 +796,36 @@ endBtn.addEventListener("click", async () => {
       }
     }
     renderScore(result); setStatus("Avaliação concluída!");
+    saveSimulationResult(result);
   } catch(e) {
     setStatus("Erro ao avaliar: " + e.message);
     endBtn.removeAttribute("disabled"); sessionEnded = false;
   }
 });
+
+// ── Salva resultado no histórico central ──
+async function saveSimulationResult(result) {
+  try {
+    await fetch(API_URL + "/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sdr_name: sdrName,
+        persona_name: persona.name,
+        persona_shop: persona.shop,
+        persona_city: persona.city,
+        level: persona.difficulty,
+        score: Number(result.score || 0),
+        criterios: result.criterios || {},
+        resumo_lider: result.resumo_lider || "",
+        veredicto: result.veredicto || "",
+      }),
+    });
+  } catch (e) {
+    // Falha silenciosa — não deve travar a experiência do SDR
+    console.error("Erro ao salvar histórico:", e);
+  }
+}
 
 function renderScore(result) {
   const crit = result.criterios || {};

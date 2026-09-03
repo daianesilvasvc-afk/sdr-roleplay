@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Histórico de Simulações — SDR</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0d0d0d; color: #e8e8e8;
+    min-height: 100vh; padding: 2rem 1rem;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #app { width: 100%; max-width: 900px; }
+  .title { font-size: 22px; font-weight: 500; color: #fff; margin-bottom: 4px; }
+  .sub { font-size: 14px; color: #666; margin-bottom: 1.5rem; }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+  .filters select, .filters button {
+    padding: 8px 12px; font-size: 13px; border-radius: 8px;
+    border: 1px solid #2a2a2a; background: #1a1a1a; color: #e8e8e8; font-family: inherit; cursor: pointer;
+  }
+  .filters button:hover { background: #222; }
+
+  .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .sum-card { background: #1a1a1a; border: 0.5px solid #2a2a2a; border-radius: 10px; padding: 0.9rem 1rem; }
+  .sum-card .lbl { font-size: 12px; color: #888; margin-bottom: 4px; }
+  .sum-card .val { font-size: 22px; font-weight: 500; color: #fff; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; padding: 10px 12px; color: #888; font-weight: 500;
+    border-bottom: 1px solid #2a2a2a; white-space: nowrap;
+  }
+  tbody td { padding: 10px 12px; border-bottom: 0.5px solid #1e1e1e; color: #ddd; }
+  tbody tr:hover { background: #151515; }
+  .lvl-facil { color: #5cb85c; }
+  .lvl-medio { color: #f5c518; }
+  .lvl-dificil { color: #f87171; }
+  .score { font-weight: 600; }
+  .score-good { color: #5cb85c; }
+  .score-mid { color: #f5c518; }
+  .score-low { color: #f87171; }
+
+  #empty, #loading { color: #666; font-size: 14px; padding: 2rem 0; text-align: center; }
+  #table-wrap { overflow-x: auto; background: #111; border: 0.5px solid #222; border-radius: 12px; padding: 0.5rem; }
+
+  .veredicto { font-style: italic; color: #999; max-width: 320px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="title">Histórico de Simulações — SDR</div>
+  <div class="sub">Notas e feedback de todas as sessões de roleplay registradas.</div>
+
+  <div class="filters">
+    <select id="sdr-filter" onchange="applyFilter()">
+      <option value="">Todos os SDRs</option>
+    </select>
+    <button onclick="load()">↻ Atualizar</button>
+  </div>
+
+  <div class="summary-cards" id="summary"></div>
+
+  <div id="loading">Carregando...</div>
+  <div id="empty" style="display:none">Nenhuma simulação registrada ainda.</div>
+  <div id="table-wrap" style="display:none">
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>SDR</th>
+          <th>Persona</th>
+          <th>Nível</th>
+          <th>Nota</th>
+          <th>Veredicto</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API_URL = "https://withered-wildflower-db78.daiane-silvasvc.workers.dev";
+let allResults = [];
+
+function fmtDate(s) {
+  if (!s) return "—";
+  const d = new Date(s.replace(" ", "T") + "Z");
+  return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+
+function scoreClass(v) {
+  return v >= 70 ? "score-good" : v >= 50 ? "score-mid" : "score-low";
+}
+
+async function load() {
+  document.getElementById("loading").style.display = "block";
+  document.getElementById("table-wrap").style.display = "none";
+  document.getElementById("empty").style.display = "none";
+  try {
+    const resp = await fetch(API_URL + "/history?limit=500");
+    const data = await resp.json();
+    allResults = data.results || [];
+    populateSdrFilter();
+    applyFilter();
+  } catch (e) {
+    document.getElementById("loading").textContent = "Erro ao carregar: " + e.message;
+  }
+}
+
+function populateSdrFilter() {
+  const sel = document.getElementById("sdr-filter");
+  const current = sel.value;
+  const names = [...new Set(allResults.map(r => r.sdr_name))].sort();
+  sel.innerHTML = '<option value="">Todos os SDRs</option>' +
+    names.map(n => `<option value="${n}">${n}</option>`).join("");
+  sel.value = current;
+}
+
+function applyFilter() {
+  const filter = document.getElementById("sdr-filter").value;
+  const rows = filter ? allResults.filter(r => r.sdr_name === filter) : allResults;
+  render(rows);
+}
+
+function render(rows) {
+  document.getElementById("loading").style.display = "none";
+
+  // Resumo
+  const summary = document.getElementById("summary");
+  if (!rows.length) {
+    summary.innerHTML = "";
+    document.getElementById("empty").style.display = "block";
+    document.getElementById("table-wrap").style.display = "none";
+    return;
+  }
+  const avg = Math.round(rows.reduce((a, r) => a + (r.score || 0), 0) / rows.length);
+  const bySdr = new Set(rows.map(r => r.sdr_name)).size;
+  summary.innerHTML = `
+    <div class="sum-card"><div class="lbl">Simulações</div><div class="val">${rows.length}</div></div>
+    <div class="sum-card"><div class="lbl">Nota média</div><div class="val ${scoreClass(avg)}">${avg}%</div></div>
+    <div class="sum-card"><div class="lbl">SDRs ativos</div><div class="val">${bySdr}</div></div>
+  `;
+
+  document.getElementById("empty").style.display = "none";
+  document.getElementById("table-wrap").style.display = "block";
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${fmtDate(r.created_at)}</td>
+      <td>${r.sdr_name || "—"}</td>
+      <td>${r.persona_name || "—"}${r.persona_shop ? " · " + r.persona_shop : ""}</td>
+      <td class="lvl-${r.level || ''}">${r.level || "—"}</td>
+      <td class="score ${scoreClass(r.score || 0)}">${r.score ?? "—"}%</td>
+      <td class="veredicto">${r.veredicto || ""}</td>
+    </tr>
+  `).join("");
+}
+
+load();
+</script>
+</body>
+</html>
