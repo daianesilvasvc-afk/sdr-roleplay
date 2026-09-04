@@ -208,13 +208,17 @@ function render(rows) {
   const porEtapa = ETAPAS.map(e => ({ e, m: mediaEtapa(rows, e) })).filter(x => x.m !== null);
   const etapasEl = document.getElementById("por-etapa");
   if (porEtapa.length) {
-    const pior = porEtapa.reduce((a, b) => (b.m < a.m ? b : a));
+    // Empate e comum com poucas simulacoes — apontar so a primeira esconderia
+    // as outras etapas igualmente fracas, que e justamente o que se age em cima.
+    const minimo = Math.min(...porEtapa.map(x => x.m));
+    const piores = porEtapa.filter(x => x.m === minimo).map(x => x.e);
+    const rotuloPior = piores.map(e => ROTULOS[e]).join(", ");
     etapasEl.innerHTML =
       '<div class="etapas-titulo">Média por etapa' +
-      `<span class="etapas-pior">ponto mais fraco: ${ROTULOS[pior.e]}</span></div>` +
+      `<span class="etapas-pior">ponto${piores.length > 1 ? "s" : ""} mais fraco${piores.length > 1 ? "s" : ""}: ${rotuloPior}</span></div>` +
       '<div class="etapas-grid">' +
       porEtapa.map(({ e, m }) =>
-        `<div class="etapa-card${e === pior.e ? " etapa-pior" : ""}">` +
+        `<div class="etapa-card${piores.includes(e) ? " etapa-pior" : ""}">` +
           `<div class="lbl">${ROTULOS[e]}</div>` +
           `<div class="val ${classeCriterios(m)}">${m.toFixed(1)}<span class="denom">/5</span></div>` +
         '</div>').join("") +
