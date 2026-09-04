@@ -743,7 +743,7 @@ const CHECKLIST_SCRIPT = [
   ]},
   { grupo: "Solução e fechamento", peso: 20, itens: [
     ["citou_dor",           "Citou a dor confirmada antes de apresentar a consultoria"],
-    ["entregavel",          "Explicou o entregável, não só que o lead vai falar com um especialista"],
+    ["entregavel",          "Disse o que a consultoria entrega em concreto — diagnóstico, plano, o que será estruturado. Dizer apenas que o lead vai falar com um especialista, ou citar quem treinou o especialista, não conta"],
     ["compromisso_antes",   "Pediu o compromisso de foco quando nenhum horário ainda tinha sido oferecido. Se algum horário já havia sido dito, marque false — mesmo que o SDR tenha pedido foco depois"],
     ["data_hora",           "Fechou data e horário específicos"],
     ["gratuito",            "Deixou claro que a consultoria é gratuita"],
@@ -785,6 +785,35 @@ function somarChecklist(marcado) {
 
 // ── Avaliação ──
 // Régua v4.1 (NEPQ + BANT): 4 critérios de 0 a 5 + score de script 0-100%.
+// Cada criterio deriva dos itens do checklist, nao de nota livre do modelo.
+// Foi o que estabilizou o score geral, o BANT e o % de script: as tres metricas
+// que sairam do julgamento livre foram a amplitude ~0, e a nota 0-5 que ficou
+// como opiniao era a que mais oscilava (1,3 de amplitude em 6 rodadas).
+// Os 6 itens de Qualificacao nao entram aqui de proposito: eles alimentam o
+// BANT e o script, que e o Critério 5 da regua.
+const CRITERIO_ITENS = {
+  investigacao: ["dor_espontanea", "aprofundou", "espelhou"],
+  sonho:        ["sonho_do_lead", "sonho_numero", "sonho_pessoal"],
+  solucao:      ["citou_dor", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
+  agendamento:  ["compromisso_antes", "data_hora", "gratuito", "confirmacao_escrita", "recap",
+                 "sem_escassez_falsa", "alinhou_expectativa", "combinou_whatsapp", "prova_social_final"],
+};
+
+// Nota 0-5 a partir da fracao de itens cumpridos. Item "NA" sai do denominador;
+// criterio sem nenhum item aplicavel vira "NA" e fica fora da media.
+function notaDoCriterio(marcado, criterio) {
+  const chaves = CRITERIO_ITENS[criterio] || [];
+  let aplicaveis = 0, feitos = 0;
+  for (const k of chaves) {
+    const v = (marcado || {})[k];
+    if (v === "NA" || v === "na" || v == null) continue;
+    aplicaveis++;
+    if (v === true) feitos++;
+  }
+  if (!aplicaveis) return { nota: "NA", feitos: 0, aplicaveis: 0 };
+  return { nota: Math.round(feitos / aplicaveis * 5 * 10) / 10, feitos, aplicaveis };
+}
+
 const CRITERIOS_V41 = [
   ["investigacao", "1 — Investigação: clareza da dor"],
   ["sonho",        "2 — Descoberta do sonho"],
@@ -797,21 +826,23 @@ const CRITERIOS_V41 = [
 function lerAvaliacao(result) {
   const crit = result && result.criterios;
   if (!crit) return null;
-  const notas = {};
-  const pontuadas = [];
+  for (const [k] of CRITERIOS_V41) if (!crit[k]) return null;  // exige o feedback das 4 etapas
+
+  // O percentual do script e somado do checklist, nunca lido do modelo.
+  const marcado = (result.script && result.script.checklist) || {};
+  const soma = somarChecklist(marcado);
+  if (!soma) return null;
+
+  // As notas 0-5 tambem vem do checklist. O campo "nota" que o modelo
+  // eventualmente devolva e ignorado.
+  const notas = {}, detalhe = {}, pontuadas = [];
   for (const [k] of CRITERIOS_V41) {
-    const c = crit[k];
-    if (!c) return null;
-    if (c.nota === "NA" || c.nota === "na") { notas[k] = "NA"; continue; }
-    const n = Number(c.nota);
-    if (!Number.isFinite(n) || n < 0 || n > 5) return null;
-    notas[k] = n;
-    pontuadas.push(n);
+    const d = notaDoCriterio(marcado, k);
+    notas[k] = d.nota;
+    detalhe[k] = d;
+    if (d.nota !== "NA") pontuadas.push(d.nota);
   }
   if (!pontuadas.length) return null;  // tudo NA: nao ha o que pontuar
-  // O percentual do script e somado do checklist, nunca lido do modelo.
-  const soma = somarChecklist(result.script && result.script.checklist);
-  if (!soma) return null;
   const b = result.bant;
   const PILARES_BANT = ["budget", "authority", "need", "timeline"];
 
@@ -820,7 +851,6 @@ function lerAvaliacao(result) {
   // confirmava T em ligacao onde ninguem perguntou prazo — e o painel do gestor
   // dizia "altamente qualificado" para um lead que nem foi sondado.
   // Mesma logica para o caixa: sem faturamento e caixa validados, Budget nao fecha.
-  const marcado = (result.script && result.script.checklist) || {};
   const exige = (pilar, condicao) => {
     const p = b && b[pilar];
     if (!p || !/^CONFIRMADO/i.test(p.status || "") || condicao) return;
@@ -839,6 +869,7 @@ function lerAvaliacao(result) {
   return {
     notas,
     media: Math.round(pontuadas.reduce((a, b) => a + b, 0) / pontuadas.length * 10) / 10,
+    detalhe,
     scriptPct: soma.pct,
     scriptGrupos: soma.grupos,
     bantScore
@@ -1038,13 +1069,14 @@ Cada pilar CONFIRMADO vale 1 ponto no score BANT (0 a 4).
 - Turnos de fala do SDR nesta call: ` + numTurnos + `
 
 ## 9. FORMATO DE SAÍDA
-Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. O objeto "checklist" precisa conter TODOS os itens da seção 6, cada um com true, false ou "NA" — item ausente é tratado como não avaliado. Toda "nota" é um número de 0 a 5 ou a string "NA". Todo "trecho" é citação literal de no máximo 30 palavras, prefixada por 🟢 SDR ou 🟣 CLIENTE e por "⏱ turno #N"; use "" quando não houver trecho.
+Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. O objeto "checklist" precisa conter TODOS os itens da seção 6, cada um com true, false ou "NA" — item ausente é tratado como não avaliado.
+NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculadas fora daqui, a partir das suas marcações no checklist. A escala da seção 5 e as âncoras da seção 7 continuam valendo como referência para você escrever o feedback no tom certo — não para atribuir número. Toda "nota" é um número de 0 a 5 ou a string "NA". Todo "trecho" é citação literal de no máximo 30 palavras, prefixada por 🟢 SDR ou 🟣 CLIENTE e por "⏱ turno #N"; use "" quando não houver trecho.
 {"sintese":"uma frase do líder sobre a ligação inteira",
 "criterios":{
-"investigacao":{"nota":0,"feedback":"voz do líder: o que fez certo (se houver) / o que errou + turno + impacto / análise de espontaneidade","trecho_dor":"","trecho_desdobramento":"","dores":["dor 1"],"espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa","proximo":"Na próxima: [frase exata que deveria ter usado]"},
-"sonho":{"nota":0,"feedback":"voz do líder","trecho":"","sonhos":["sonho 1"],"proximo":"Na próxima: [frase exata]"},
-"solucao":{"nota":0,"feedback":"voz do líder","trecho_dor":"","trecho_entregavel":"","proximo":"Na próxima: [frase exata]"},
-"agendamento":{"nota":0,"feedback":"voz do líder","trecho_oferta":"","proximo":"Na próxima: [frase exata]"}},
+"investigacao":{"feedback":"voz do líder: o que fez certo (se houver) / o que errou + turno + impacto / análise de espontaneidade","trecho_dor":"","trecho_desdobramento":"","dores":["dor 1"],"espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa","proximo":"Na próxima: [frase exata que deveria ter usado]"},
+"sonho":{"feedback":"voz do líder","trecho":"","sonhos":["sonho 1"],"proximo":"Na próxima: [frase exata]"},
+"solucao":{"feedback":"voz do líder","trecho_dor":"","trecho_entregavel":"","proximo":"Na próxima: [frase exata]"},
+"agendamento":{"feedback":"voz do líder","trecho_oferta":"","proximo":"Na próxima: [frase exata]"}},
 "prolixidade":{"detectada":false,"turno":"","observacao":"o que foi dito em excesso e o impacto","deveria_ter_dito":"uma frase"},
 "ponto_perda":{"houve":false,"turno":"","o_que_aconteceu":"1-2 frases","trecho":"","causa_raiz":"a falha técnica específica","o_que_fazer":"uma ação concreta em segunda pessoa"},
 "bant":{"budget":{"status":"CONFIRMADO ou PARCIAL ou NÃO MAPEADO ou DESQUALIFICADO","trecho":""},"authority":{"status":"","trecho":""},"need":{"status":"","trecho":"","espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa"},"timeline":{"status":"","trecho":""},"score":0},
@@ -1169,6 +1201,11 @@ function renderScore(result) {
       '<div class="bar-bg"><div class="bar-fg" style="width:' + larg + '%;background:' + col + '"></div></div>' +
       '<span class="crit-val" style="color:' + col + '">' + (n === "NA" ? "NA" : n + "/5") + '</span>' +
       '</div>';
+    const d = av.detalhe[k];
+    if (d && d.aplicaveis) {
+      html += '<div style="font-size:11px;color:#666;margin:-4px 0 6px 0">' +
+        d.feitos + ' de ' + d.aplicaveis + ' itens do roteiro</div>';
+    }
   }
   html += '</div>';
 
@@ -1185,7 +1222,10 @@ function renderScore(result) {
     const col = corNota(n);
     html += '<div style="margin-bottom:16px;padding:12px 14px;background:#161616;border-radius:10px;border-left:3px solid ' + col + '">' +
       '<div style="font-size:13px;font-weight:500;color:#fff;margin-bottom:6px">' + label +
-        ' — <span style="color:' + col + '">' + (n === "NA" ? "NA" : n + "/5") + '</span></div>' +
+        ' — <span style="color:' + col + '">' + (n === "NA" ? "NA" : n + "/5") + '</span>' +
+        (av.detalhe[k] && av.detalhe[k].aplicaveis
+          ? '<span style="color:#666;font-weight:400"> · ' + av.detalhe[k].feitos + '/' + av.detalhe[k].aplicaveis + ' itens</span>' : '') +
+        '</div>' +
       '<div style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:8px">' + esc(c.feedback) + '</div>';
 
     if (k === "investigacao") {
