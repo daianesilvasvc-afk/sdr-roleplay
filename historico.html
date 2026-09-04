@@ -52,7 +52,7 @@
 <body>
 <div id="app">
   <div class="title">Histórico de Simulações — SDR</div>
-  <div class="sub">Notas e feedback de todas as sessões de roleplay registradas.</div>
+  <div class="sub">Régua v4.1 (NEPQ + BANT) — critérios de 0 a 5 e % de script seguido.</div>
 
   <div class="filters">
     <select id="sdr-filter" onchange="applyFilter()">
@@ -73,8 +73,10 @@
           <th>SDR</th>
           <th>Persona</th>
           <th>Nível</th>
-          <th>Nota</th>
-          <th>Veredicto</th>
+          <th>Critérios</th>
+          <th>Script</th>
+          <th>BANT</th>
+          <th>Síntese do líder</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -92,9 +94,22 @@ function fmtDate(s) {
   return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" });
 }
 
-function scoreClass(v) {
-  return v >= 70 ? "score-good" : v >= 50 ? "score-mid" : "score-low";
+// Duas escalas diferentes no mesmo painel — cada uma com seu proprio corte.
+function classeCriterios(v) {
+  return v >= 4 ? "score-good" : v >= 3 ? "score-mid" : "score-low";
 }
+function classeScript(v) {
+  return v >= 80 ? "score-good" : v >= 50 ? "score-mid" : "score-low";
+}
+function classeBant(v) {
+  return v >= 3 ? "score-good" : v >= 2 ? "score-mid" : "score-low";
+}
+function media(rows, campo) {
+  const v = rows.map(r => r[campo]).filter(n => typeof n === "number");
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+const esc = s => String(s == null ? "" : s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 async function load() {
   document.getElementById("loading").style.display = "block";
@@ -137,13 +152,18 @@ function render(rows) {
     document.getElementById("table-wrap").style.display = "none";
     return;
   }
-  const avg = Math.round(rows.reduce((a, r) => a + (r.score || 0), 0) / rows.length);
+  const mCrit = media(rows, "media_criterios");
+  const mScript = media(rows, "script_pct");
+  const mBant = media(rows, "bant_score");
   const bySdr = new Set(rows.map(r => r.sdr_name)).size;
-  summary.innerHTML = `
-    <div class="sum-card"><div class="lbl">Simulações</div><div class="val">${rows.length}</div></div>
-    <div class="sum-card"><div class="lbl">Nota média</div><div class="val ${scoreClass(avg)}">${avg}%</div></div>
-    <div class="sum-card"><div class="lbl">SDRs ativos</div><div class="val">${bySdr}</div></div>
-  `;
+  const card = (lbl, val, cls) =>
+    `<div class="sum-card"><div class="lbl">${lbl}</div><div class="val ${cls}">${val}</div></div>`;
+  summary.innerHTML =
+    card("Simulações", rows.length, "") +
+    card("Média critérios", mCrit === null ? "—" : mCrit.toFixed(1) + "/5", mCrit === null ? "" : classeCriterios(mCrit)) +
+    card("Script médio", mScript === null ? "—" : Math.round(mScript) + "%", mScript === null ? "" : classeScript(mScript)) +
+    card("BANT médio", mBant === null ? "—" : mBant.toFixed(1) + "/4", mBant === null ? "" : classeBant(mBant)) +
+    card("SDRs ativos", bySdr, "");
 
   document.getElementById("empty").style.display = "none";
   document.getElementById("table-wrap").style.display = "block";
@@ -151,11 +171,13 @@ function render(rows) {
   tbody.innerHTML = rows.map(r => `
     <tr>
       <td>${fmtDate(r.created_at)}</td>
-      <td>${r.sdr_name || "—"}</td>
-      <td>${r.persona_name || "—"}${r.persona_shop ? " · " + r.persona_shop : ""}</td>
-      <td class="lvl-${r.level || ''}">${r.level || "—"}</td>
-      <td class="score ${scoreClass(r.score || 0)}">${r.score ?? "—"}%</td>
-      <td class="veredicto">${r.veredicto || ""}</td>
+      <td>${esc(r.sdr_name) || "—"}</td>
+      <td>${esc(r.persona_name) || "—"}${r.persona_shop ? " · " + esc(r.persona_shop) : ""}</td>
+      <td class="lvl-${esc(r.level) || ''}">${esc(r.level) || "—"}</td>
+      <td class="score ${typeof r.media_criterios === "number" ? classeCriterios(r.media_criterios) : ""}">${typeof r.media_criterios === "number" ? r.media_criterios.toFixed(1) + "/5" : "—"}</td>
+      <td class="score ${typeof r.script_pct === "number" ? classeScript(r.script_pct) : ""}">${typeof r.script_pct === "number" ? r.script_pct + "%" : "—"}</td>
+      <td class="score ${typeof r.bant_score === "number" ? classeBant(r.bant_score) : ""}">${typeof r.bant_score === "number" ? r.bant_score + "/4" : "—"}</td>
+      <td class="veredicto">${esc(r.veredicto)}</td>
     </tr>
   `).join("");
 }

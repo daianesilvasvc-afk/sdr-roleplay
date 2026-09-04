@@ -529,8 +529,9 @@ function buildSystem(p) {
 // ── API ──
 async function callAPI(messages, system, opts) {
   const o = opts || {};
-  const payload = { model: "claude-sonnet-4-6", max_tokens: o.max_tokens || 8000, system, messages };
-  // temperature so vai quando pedida — a persona continua criativa (default da API),
+  // O worker escolhe o modelo a partir de `task` — persona (rapido) ou avaliacao (qualidade).
+  const payload = { task: o.task || "persona", max_tokens: o.max_tokens || 8000, system, messages };
+  // temperature so vai quando pedida — a persona continua criativa (default do provedor),
   // a avaliacao roda em 0 para a mesma call sempre dar a mesma nota
   if (typeof o.temperature === "number") payload.temperature = o.temperature;
   const resp = await fetch(API_URL, {
@@ -671,18 +672,46 @@ async function getGreeting() {
 }
 
 // ── Avaliação ──
-// Extrai as notas dos 5 criterios. Retorna null se algum faltar ou estiver fora de 0-10.
-function notasDosCriterios(result) {
+// Régua v4.1 (NEPQ + BANT): 4 critérios de 0 a 5 + score de script 0-100%.
+const CRITERIOS_V41 = [
+  ["investigacao", "1 — Investigação: clareza da dor"],
+  ["sonho",        "2 — Descoberta do sonho"],
+  ["solucao",      "3 — Solução: interesse na dor real"],
+  ["agendamento",  "4 — Agendamento: escassez e valor"]
+];
+
+// Le as notas da avaliacao. Retorna null se ela nao for utilizavel — meia avaliacao nao vira nota.
+// "NA" (etapa nao alcancada) entra no relatorio mas fica FORA da media: nao e zero.
+function lerAvaliacao(result) {
   const crit = result && result.criterios;
   if (!crit) return null;
-  const notas = [];
-  for (const k of ["c1", "c2", "c3", "c4", "c5"]) {
-    const n = crit[k] ? Number(crit[k].nota) : NaN;
-    if (!Number.isFinite(n) || n < 0 || n > 10) return null;
-    notas.push(n);
+  const notas = {};
+  const pontuadas = [];
+  for (const [k] of CRITERIOS_V41) {
+    const c = crit[k];
+    if (!c) return null;
+    if (c.nota === "NA" || c.nota === "na") { notas[k] = "NA"; continue; }
+    const n = Number(c.nota);
+    if (!Number.isFinite(n) || n < 0 || n > 5) return null;
+    notas[k] = n;
+    pontuadas.push(n);
   }
-  return notas;
+  if (!pontuadas.length) return null;  // tudo NA: nao ha o que pontuar
+  const pct = Number(result.script && result.script.percentual);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) return null;
+  const bant = Number(result.bant && result.bant.score);
+  return {
+    notas,
+    media: Math.round(pontuadas.reduce((a, b) => a + b, 0) / pontuadas.length * 10) / 10,
+    scriptPct: Math.round(pct),
+    bantScore: Number.isFinite(bant) && bant >= 0 && bant <= 4 ? Math.round(bant) : null
+  };
 }
+
+const corNota   = n => n === "NA" ? "#666" : n >= 4 ? "#5cb85c" : n >= 3 ? "#f5c518" : "#f87171";
+const corScript = p => p >= 80 ? "#5cb85c" : p >= 50 ? "#f5c518" : "#f87171";
+const esc = s => String(s == null ? "" : s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 endBtn.addEventListener("click", async () => {
   if (isProcessing) return;
@@ -703,77 +732,181 @@ endBtn.addEventListener("click", async () => {
     "DISC: " + persona.disc + " | Comportamento: " + persona.comportamento.substring(0,120) + "...\n";
 
   const evalPrompt =
-    "Você é um analista de pré-vendas da Podium Educação avaliando uma simulação de SDR.\n" +
-    "Escreva o feedback na VOZ DO LÍDER, em segunda pessoa, direto com o SDR.\n\n" +
-    gabarito + "\n" +
-    "CONTEXTO DO PROCESSO:\n" +
-    "- A marca que o lead conhece é Cash Barber / Lincoln / Rapha — correto o SDR usar qualquer dessas na abertura.\n" +
-    "- Faturamento vem pré-preenchido no card — SDR CONFIRMA na call, não pergunta do zero.\n" +
-    "- Cidade e nome da barbearia já estão no card — não cobrar.\n" +
-    "- Sistema atual e disposição para mudar = OBRIGATÓRIOS. Lead satisfeito com sistema e sem disposição = não vai para a consultoria.\n" +
-    "- Sócio, se ainda corta cabelo = opcionais — não deflata se não perguntar.\n" +
-    "- CNPJ é obrigatório confirmar — qualquer CNPJ ativo serve, não precisa ser de barbearia. Se fat < R$10k: obrigatório validar se tem R$300 para investir.\n" +
-    "- Objetivo da call: agendar consultoria GRATUITA — SDR não vende produto.\n" +
-    "- DESQUALIFICADORES: sem CNPJ de nenhuma área = não agenda. Fat<R$10k sem R$300 disponível = não agenda. Avaliar se SDR identificou, comunicou com respeito e encerrou bem.\n\n" +
-    "ESPONTANEIDADE DA DOR (regra crítica):\n" +
-    "- Dor ESPONTÂNEA = lead falou sem ser induzido ou após pergunta aberta. Vale mais.\n" +
-    "- Dor INDUZIDA = SDR sugeriu o problema antes de perguntar, lead respondeu sim/não. Vale menos.\n" +
-    "- Sempre identifique se a dor foi espontânea ou induzida no feedback.\n\n" +
-    "PROLIXIDADE:\n" +
-    "- Penalize se o SDR usou mais de 3 frases seguidas sem perguntar nada.\n" +
-    "- Penalize se explicou o produto antes de entender a dor.\n" +
-    "- Penalize se a abertura passou de 2 turnos sem engajar o lead.\n\n" +
-    "AVALIE EM 5 CRITÉRIOS (nota 0-10 cada):\n\n" +
-    "C1 — ABERTURA (0-10)\n" +
-    "10: Se apresentou, disse a marca, explicou motivo e objetivo com clareza e naturalidade.\n" +
-    "7-9: Fez tudo mas de forma mecânica ou muito longa.\n" +
-    "4-6: Faltou algum elemento ou foi confuso.\n" +
-    "0-3: Abertura ausente ou totalmente genérica.\n\n" +
-    "C2 — INVESTIGAÇÃO DA DOR (0-10)\n" +
-    "10: Identificou dor espontânea, aprofundou com pergunta aberta, desdobrou.\n" +
-    "7-9: Identificou dor mas parcialmente induzida, ou não desdobrou bem.\n" +
-    "4-6: Perguntas genéricas ou fechadas, aceitou resposta superficial.\n" +
-    "0-3: Não investigou, ou SDR sugeriu o problema antes de perguntar.\n" +
-    "PENALIZAR: SDR que falou mais de 3 frases seguidas sem perguntar nada.\n\n" +
-    "C3 — QUALIFICAÇÃO (0-10)\n" +
-    "10: Confirmou faturamento, CNPJ, estrutura, sistema atual, disposição para mudar. Se fat<10k validou R$300.\n" +
-    "7-9: Confirmou os principais mas esqueceu 1 item.\n" +
-    "4-6: Qualificação incompleta ou superficial.\n" +
-    "0-3: Não qualificou ou ignorou desqualificador claro.\n" +
-    "REGRAS:\n" +
-    "- CNPJ = primeiro dado a confirmar. Se não tem CNPJ, o SDR encerra a call ali — não há coleta dos demais dados. Nesse caso NÃO penalizar ausência de faturamento, estrutura, sistema ou disposição. Avaliar apenas se identificou o desqualificador, comunicou com respeito e encerrou bem.\n" +
-    "- Sistema atual = OBRIGATÓRIO perguntar (quando a call segue normalmente). Não perguntou = deflata.\n" +
-    "- Disposição para mudar = importante perguntar mas não é bloqueador. Não perguntou = pontua com dica de como abordar na próxima.\n" +
-    "- Se lead demonstrou baixa disposição e SDR mandou para consultoria mesmo assim = pontua e dá dica de como deveria ter contornado (ex: mostrar custo da inação, conectar à dor, criar urgência).\n\n" +
-    "C4 — CONEXÃO DOR → CONSULTORIA (0-10)\n" +
-    "10: Retomou a dor real identificada e conectou diretamente à consultoria com urgência.\n" +
-    "7-9: Conectou mas de forma genérica ou sem urgência real.\n" +
-    "4-6: Mencionou a consultoria sem retomar a dor.\n" +
-    "0-3: Não conectou ou apresentou a solução antes de entender a dor.\n\n" +
-    "C5 — FECHAMENTO (0-10)\n" +
-    "10: Assumiu o próximo passo com autoridade, sem perguntar 'quer agendar?', com escassez ou urgência real.\n" +
-    "7-9: Agendou mas de forma mecânica ou sem urgência.\n" +
-    "4-6: Tentou agendar mas recuou, ou perguntou se o lead quer.\n" +
-    "0-3: Não chegou ao fechamento, deixou em aberto ou aceitou 'vou pensar' sem contra-argumento.\n" +
-    "ATENÇÃO: Se lead era desqualificado — avaliar se SDR identificou, comunicou e encerrou bem.\n\n" +
-    "SCORE GERAL = média dos 5 critérios x 10 (0-100%).\n\n" +
-    "Turnos do SDR nesta call: " + numTurnos + "\n\n" +
-    "FORMATO DE SAÍDA — responda SOMENTE este JSON sem markdown:\n" +
-    '{"score":0,' +
-    '"criterios":{' +
-    '"c1":{"nota":0,"feedback":"voz do líder: o que fez certo (se houver) / o que errou / impacto","proximo":"Na próxima: [frase exata que deveria ter usado]"},' +
-    '"c2":{"nota":0,"feedback":"voz do líder + espontaneidade da dor identificada","proximo":"Na próxima: [frase exata]","dores":["dor 1","dor 2"],"espontaneidade":"ESPONTÂNEA ou INDUZIDA + explicação"},' +
-    '"c3":{"nota":0,"feedback":"voz do líder sobre qualificação","proximo":"Na próxima: [frase exata]","dados_faltantes":["dado 1"]},' +
-    '"c4":{"nota":0,"feedback":"voz do líder sobre conexão","proximo":"Na próxima: [frase exata]"},' +
-    '"c5":{"nota":0,"feedback":"voz do líder sobre fechamento","proximo":"Na próxima: [frase exata]"}},' +
-    '"prolixidade":{"detectada":false,"observacao":"onde falou demais e impacto"},' +
-    '"ponto_perda":{"houve":false,"observacao":"turno X — o que aconteceu e o que deveria ter feito"},' +
-    '"resumo_lider":"3-4 frases do líder: padrão identificado, onde é forte, onde é fraco, UM foco para a próxima call. Terminar com o foco. Ex: Próxima call, seu foco é um só: [X].",' +
-    '"veredicto":"frase de síntese do líder sobre a ligação inteira. Ex: Você agendou — mas deixou temperatura na mesa."}\n' +
-    "CONVERSA:\n" + transcript;
+`# AGENTE DE ANÁLISE DE LIGAÇÕES — PRÉ-VENDAS PODIUM
+## MÉTODO NEPQ + BANT — v4.1 (ROLEPLAY)
+
+## 1. IDENTIDADE E MISSÃO
+Você é um analista especialista em pré-vendas treinado no método NEPQ.
+Avalie a performance do SDR com base na transcrição desta ligação de roleplay e escreva o FEEDBACK PARA O SDR na voz de um líder de pré-vendas experiente falando diretamente com seu liderado. Brutalmente direto, técnico, com dica prática de melhoria em cada etapa.
+Você NÃO é um agente de elogios. Você é um auditor de qualidade.
+Notas altas são exceção — exigem evidência explícita na transcrição.
+
+## 2. REGRA FUNDAMENTAL
+O SDR recebe o feedback como se viesse do líder direto dele.
+- Voz em segunda pessoa ("você fez", "você deixou de fazer")
+- Tom direto, sem rodeios, sem suavizar, mas sempre com a dica prática do que fazer na próxima ligação
+- Não proteja o SDR do desconforto necessário para evoluir
+- Elogio só com trecho que justifique — em uma frase, nunca um parágrafo
+- Quando o SDR acertar, diga: "é esse padrão que eu quero ver"
+
+## 3. REGRAS GLOBAIS INVIOLÁVEIS
+
+REGRA 1 — ESPONTANEIDADE DA DOR
+Sempre deixe claro o que o lead disse de forma ESPONTÂNEA versus o que foi INDUZIDO pelo SDR. Dores induzidas reduzem a validade do critério, reduzem a nota da investigação e reduzem a temperatura do lead.
+- Resposta a pergunta fechada ("você tem problema com X?") = induzida
+- Verbalização sem provocação direta, ou após pergunta aberta = espontânea
+
+REGRA 2 — LINHA LÓGICA
+Todos os critérios devem estar conectados ao MESMO problema principal identificado na ligação. Se a dor principal muda entre os critérios, isso é inconsistência — indique explicitamente no feedback.
+
+REGRA 3 — CITAÇÕES OBRIGATÓRIAS
+Todo trecho citado deve ser LITERAL, com no máximo 30 palavras.
+Sempre identifique 🟢 SDR ou 🟣 CLIENTE seguido do turno.
+Ausência de trecho = ausência de evidência = penalização automática.
+Esta transcrição de roleplay NÃO tem minutagem: use sempre o formato "⏱ turno #N", contando os turnos de fala a partir de 1. NUNCA invente um horário.
+
+REGRA 4 — PROLIXIDADE DO SDR
+Monitore ativamente se o SDR fala demais. Prolixidade esfria o lead e sinaliza falta de controle da conversa. Sinais:
+- Explica o produto antes de entender a dor do lead
+- Repete a mesma informação mais de uma vez na mesma etapa
+- Usa mais de 3 frases seguidas sem fazer uma pergunta
+- Responde objeção com discurso longo em vez de pergunta cirúrgica
+- Preenche silêncio do lead com mais conteúdo em vez de escuta
+- Abertura passa de 2 turnos sem engajar o lead
+Quando identificar, registre o turno, o que foi dito em excesso, o impacto real e — em UMA frase — o que deveria ter sido dito no lugar.
+
+REGRA 5 — PONTO DE PERDA DO AGENDAMENTO
+Se a ligação NÃO gerou agendamento por falha do SDR (não por desqualificação legítima: sem CNPJ, sem caixa, negativa clara), identifique o momento exato da perda.
+Conta como falha do SDR: não fez a oferta de forma clara; recuou na primeira objeção sem contra-argumento; não criou urgência ou valor antes de oferecer horário; deixou em aberto sem fechar data e hora; aceitou "vou pensar" sem qualificar o que falta decidir; apresentou a solução cedo demais; lead esfriou por prolixidade.
+
+REGRA 6 — VOZ DO LÍDER
+Todo feedback dos Critérios 1 a 4 é escrito em segunda pessoa. Estrutura de cada etapa:
+1. O que você fez certo — uma frase, só se houver trecho que prove
+2. O que você errou — erro nomeado + turno + impacto na ligação
+3. Na próxima: dica prática, de preferência com a frase exata que o SDR deveria ter usado
+Proibido: voz passiva ou impessoal; suavizadores ("mas no geral foi bom"); crítica sem dica de correção; elogio em parágrafo.
+
+## 4. ORDEM DE EXECUÇÃO
+Cumpra na ordem, ANTES de escrever qualquer nota. Nota atribuída antes desta varredura sai inflada.
+1. Numere os turnos de fala.
+2. Liste todas as perguntas do SDR e marque cada uma como aberta ou fechada.
+3. Liste todas as dores verbalizadas pelo lead, com trecho literal, e marque ESPONTÂNEA ou INDUZIDA.
+4. Marque onde cada etapa do script começa e termina — ou registre como AUSENTE.
+5. Localize os trechos que vão sustentar cada nota. Sem trecho localizado, a nota é 0.
+6. Só então atribua as notas.
+
+Ajuste de roleplay: avalie exclusivamente o SDR. Se o lead simulado entregou a dor sem que o SDR perguntasse, isso não é mérito do SDR — a Investigação não passa de 2. Se o lead simulado se contradisse ou saiu do personagem, ignore o trecho e não penalize o SDR. Etapa não alcançada porque o treino foi interrompido = "NA", nunca 0.
+
+## 5. ESCALA DE NOTAS (0 a 5, para todos os critérios)
+5 = Excelência. Trecho prova profundidade real, personalização à dor específica e conexão clara com o contexto do lead.
+4 = Bom. Evidência clara, faltou exatamente UM ponto identificável.
+3 = Regular. Iniciou mas não aprofundou, OU não conectou à dor real, OU executou mecanicamente.
+2 = Fraco. Superficial, genérico ou fora de ordem.
+1 = Muito fraco. Tentativa identificável sem resultado prático.
+0 = Ausente. Sem trecho que evidencie a etapa.
+"NA" = ligação interrompida antes dessa etapa.
+Em dúvida entre duas notas, atribua a MENOR.
+Fluência, simpatia e ritmo NÃO influenciam a nota.
+
+## 6. SCORE DO SCRIPT (0-100%)
+Avalie o quanto o SDR seguiu o script e os processos obrigatórios:
+- Seguiu a ordem lógica? Abertura → Investigação → Sonho → Solução → Agendamento
+- Validou CNPJ, Faturamento e Tamanho da Equipe?
+- REGRA CRÍTICA: se faturamento < R$10k, validou se o lead tem caixa/reserva para investir? Se não validou, penalize o score.
+- Aplicou BANT completo? Ausência de qualquer pilar penaliza o score em até 10%.
+Regras de cálculo — anti-leniência:
+- Cada etapa AUSENTE desconta no mínimo 15% do score total
+- Etapa genérica, sem personalização = no máximo 50% do peso da etapa
+- Score acima de 80% exige TODAS as etapas com evidência explícita de personalização
+- Score acima de 90% é reservado a ligações em que o SDR conectou todas as etapas à dor real, aplicou BANT completo e agendou com personalização real
+- Resistência do lead não contornada = penalização. Não é culpa do lead, é falha de técnica
+
+## 7. CRITÉRIOS
+
+CRITÉRIO 1 — INVESTIGAÇÃO: CRIOU CLAREZA DA DOR
+O SDR identificou uma dor real e relevante da barbearia e aprofundou nela com perguntas investigativas?
+5 = Dor clara + desdobramento + dor ESPONTÂNEA após pergunta aberta
+4 = Dor clara + desdobramento, mas dor parcialmente induzida
+3 = Identificou mas NÃO aprofundou, ou aprofundou dor totalmente induzida
+2 = Perguntas genéricas, aceitou resposta superficial
+1 = Uma única pergunta sem desdobramento
+0 = Ausência total de investigação
+Penalizar: SDR sugere o problema antes de perguntar; lead responde "sim" sem elaborar e SDR segue em frente; SDR aceita a primeira resposta sem desdobrar; perguntas fechadas em sequência.
+
+CRITÉRIO 2 — DESCOBERTA DO SONHO (GAP DOR → DESEJO)
+O SDR entendeu o cenário ideal que o lead quer construir e o impacto da resolução em 6-12 meses (negócio E vida pessoal)?
+5 = Sonho identificado + impacto na barbearia E na vida pessoal
+4 = Sonho identificado + aprofundou, mas só na barbearia
+3 = Perguntou mas não aprofundou; aceitou "crescer" sem desdobrar
+2 = Pergunta genérica, resposta rasa, zero desdobramento
+1 = Mencionou de passagem
+0 = Ausência total
+Penalizar: aceitar "quero crescer"/"pretendo" sem aprofundar; não conectar o sonho à dor do Critério 1; SDR descrever o sonho NO LUGAR do lead; não explorar vida pessoal (tempo, renda, liberdade).
+
+CRITÉRIO 3 — SOLUÇÃO: DESPERTOU INTERESSE ATENDENDO A DOR REAL
+O SDR conectou um entregável específico diretamente à dor expressa pelo lead? O lead precisa sentir "isso resolve exatamente o que estou passando".
+5 = Entregável claro + conexão direta à dor + gancho forte para a consultoria com o especialista
+4 = Entregável + conexão à dor, mas gancho fraco ou genérico
+3 = Entregável sem conexão à dor; pitch padrão
+2 = Tentou vender a consultoria sem explicar entregável
+1 = Produto mencionado de forma vaga
+0 = Ausência total
+Penalizar: apresentou o produto sem retomar a dor antes; mesmo pitch independente do problema identificado; gancho limitado a "você vai conversar com um especialista".
+
+CRITÉRIO 4 — AGENDAMENTO: ESCASSEZ E VALOR DA REUNIÃO
+O SDR vendeu a reunião com autoridade, personalização baseada nas dores e escassez real?
+5 = Reunião conectada às dores + proposta de valor personalizada + urgência genuína + escassez de horários
+4 = Conectou à dor + alguma urgência, mas escassez superficial
+3 = Ofereceu horários sem conectar às dores; agendamento mecânico
+2 = Lista de horários sem valor nem personalização
+1 = Tentou agendar de forma confusa, sem fechar
+0 = Não chegou à etapa
+Penalizar: horários sem personalização com base nas dores; sem urgência ou escassez real; frases genéricas; lead frio no aceite e SDR não percebeu; resistência não contornada com argumento técnico.
+Se NÃO agendou por falha do SDR, aplique a REGRA 5 e preencha o bloco ponto_perda.
+
+CRITÉRIO 5 — QUALIFICAÇÃO BANT
+Regras anti-leniência:
+- CONFIRMADO exige trecho explícito e voluntário do lead
+- Resposta a pergunta fechada = PARCIAL, nunca CONFIRMADO
+- Informação implícita no contexto = NÃO MAPEADO
+- SDR não investigou o pilar = NÃO MAPEADO
+- Resistência não contornada = sinal negativo para Timeline e Need
+B — BUDGET: faturamento mensal; se < 10k, caixa validado? CONFIRMADO exige faturamento declarado + caixa validado se < 10k.
+A — AUTHORITY: é o decisor? Há outro envolvido? "Sou o dono" sem autonomia demonstrada = PARCIAL.
+N — NEED: problema concreto, espontâneo e reconhecido? Dor induzida = PARCIAL no máximo.
+T — TIMELINE: urgência com prazo? Aceite com entusiasmo ou resistência? Aceitar agendamento por educação não é urgência.
+Cada pilar CONFIRMADO vale 1 ponto no score BANT (0 a 4).
+
+## 8. CONTEXTO DESTE ROLEPLAY
+` + gabarito + `
+- A marca que o lead conhece é Cash Barber / Lincoln / Rapha — correto o SDR usar qualquer dessas na abertura.
+- Faturamento vem pré-preenchido no card — o SDR CONFIRMA na call, não pergunta do zero.
+- Cidade e nome da barbearia já estão no card — não cobrar.
+- CNPJ é obrigatório confirmar — qualquer CNPJ ativo serve. Sem CNPJ de nenhuma área = desqualificado, não agenda.
+- Se faturamento < R$10k: obrigatório validar se tem R$300 para investir. Sem isso = desqualificado, não agenda.
+- Objetivo da call: agendar consultoria GRATUITA — o SDR não vende produto.
+- Se o lead era desqualificado, avalie se o SDR identificou, comunicou com respeito e encerrou bem — e marque como NA as etapas que deixaram de existir por causa disso.
+- Turnos de fala do SDR nesta call: ` + numTurnos + `
+
+## 9. FORMATO DE SAÍDA
+Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. Toda "nota" é um número de 0 a 5 ou a string "NA". Todo "trecho" é citação literal de no máximo 30 palavras, prefixada por 🟢 SDR ou 🟣 CLIENTE e por "⏱ turno #N"; use "" quando não houver trecho.
+{"sintese":"uma frase do líder sobre a ligação inteira",
+"criterios":{
+"investigacao":{"nota":0,"feedback":"voz do líder: o que fez certo (se houver) / o que errou + turno + impacto / análise de espontaneidade","trecho_dor":"","trecho_desdobramento":"","dores":["dor 1"],"espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa","proximo":"Na próxima: [frase exata que deveria ter usado]"},
+"sonho":{"nota":0,"feedback":"voz do líder","trecho":"","sonhos":["sonho 1"],"proximo":"Na próxima: [frase exata]"},
+"solucao":{"nota":0,"feedback":"voz do líder","trecho_dor":"","trecho_entregavel":"","proximo":"Na próxima: [frase exata]"},
+"agendamento":{"nota":0,"feedback":"voz do líder","trecho_oferta":"","proximo":"Na próxima: [frase exata]"}},
+"prolixidade":{"detectada":false,"turno":"","observacao":"o que foi dito em excesso e o impacto","deveria_ter_dito":"uma frase"},
+"ponto_perda":{"houve":false,"turno":"","o_que_aconteceu":"1-2 frases","trecho":"","causa_raiz":"a falha técnica específica","o_que_fazer":"uma ação concreta em segunda pessoa"},
+"bant":{"budget":{"status":"CONFIRMADO ou PARCIAL ou NÃO MAPEADO ou DESQUALIFICADO","trecho":""},"authority":{"status":"","trecho":""},"need":{"status":"","trecho":"","espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa"},"timeline":{"status":"","trecho":""},"score":0},
+"script":{"percentual":0,"etapas_ausentes":["etapa"],"justificativa":"como chegou nesse percentual, citando os descontos aplicados"},
+"resumo_lider":"3 a 5 frases: padrão identificado, onde é forte, onde é fraco, e UM foco único e mensurável para a próxima ligação. Termine sempre com o foco."}
+
+## 10. CONVERSA
+` + transcript;
 
   try {
-    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { temperature: 0 });
+    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { temperature: 0, task: "avaliacao", max_tokens: 16000 });
     let cleaned = raw.replace(/```json|```/g, "").trim();
 
     // Tenta parse direto
@@ -808,18 +941,15 @@ endBtn.addEventListener("click", async () => {
       }
     }
 
-    // So aceita avaliacao com os 5 criterios pontuados — meia avaliacao nao vira nota
-    const notas = notasDosCriterios(result);
-    if (!notas) {
-      throw new Error("a avaliação não pontuou os 5 critérios. Nada foi salvo — refaça a simulação.");
+    // So aceita avaliacao completa — meia avaliacao nao vira nota
+    const av = lerAvaliacao(result);
+    if (!av) {
+      throw new Error("a avaliação não veio completa (faltou critério ou % de script). Nada foi salvo — refaça a simulação.");
     }
-
-    // Score = media dos 5 criterios x 10, calculada aqui.
-    // O numero que o modelo devolve em "score" e ignorado: ja veio divergente da propria regua.
-    result.score = Math.round(notas.reduce((a, b) => a + b, 0) / notas.length * 10);
+    result._av = av;
 
     renderScore(result); setStatus("Avaliação concluída!");
-    saveSimulationResult(result, transcript);
+    saveSimulationResult(result, av, transcript);
   } catch(e) {
     setStatus("Erro ao avaliar: " + e.message);
     endBtn.removeAttribute("disabled"); sessionEnded = false;
@@ -827,7 +957,7 @@ endBtn.addEventListener("click", async () => {
 });
 
 // ── Salva resultado no histórico central ──
-async function saveSimulationResult(result, transcript) {
+async function saveSimulationResult(result, av, transcript) {
   try {
     const resp = await fetch(API_URL + "/save", {
       method: "POST",
@@ -838,10 +968,13 @@ async function saveSimulationResult(result, transcript) {
         persona_shop: persona.shop,
         persona_city: persona.city,
         level: persona.difficulty,
-        score: Number(result.score || 0),
-        criterios: result.criterios || {},
+        rubrica_versao: "v4.1",
+        media_criterios: av.media,
+        script_pct: av.scriptPct,
+        bant_score: av.bantScore,
+        avaliacao: result,
         resumo_lider: result.resumo_lider || "",
-        veredicto: result.veredicto || "",
+        veredicto: result.sintese || "",
         transcript: transcript || "",
       }),
     });
@@ -855,89 +988,135 @@ async function saveSimulationResult(result, transcript) {
 }
 
 function renderScore(result) {
+  const av = result._av;
   const crit = result.criterios || {};
-  const labels = {
-    c1:"C1 — Abertura",
-    c2:"C2 — Investigação da dor",
-    c3:"C3 — Qualificação",
-    c4:"C4 — Conexão dor → consultoria",
-    c5:"C5 — Fechamento"
-  };
 
-  const score = Number(result.score || 0);
-  const scoreCol = score>=70?"#5cb85c":score>=50?"#f5c518":"#f87171";
-
-  // Veredicto
+  // Sintese do lider
   let html = '<div style="font-size:15px;font-style:italic;color:#aaa;margin-bottom:1.25rem;padding:0.75rem 1rem;background:#1a1a1a;border-radius:8px;border-left:3px solid #444">' +
-    '"' + (result.veredicto||"") + '"</div>';
+    '"' + esc(result.sintese) + '"</div>';
 
-  // Score geral
-  html += '<div class="score-hero">' +
-    '<span class="big" style="color:'+scoreCol+'">'+score+'</span>' +
-    '<span class="denom">%</span>' +
-    '<span class="verdict" style="color:#666;font-size:13px;margin-left:8px">score geral</span>' +
+  // Os dois numeros lado a lado: media dos criterios (0-5) e script seguido (0-100%)
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem">' +
+    '<div style="background:#161616;border-radius:10px;padding:1rem;text-align:center">' +
+      '<div style="font-size:12px;color:#888;margin-bottom:6px">Média dos critérios</div>' +
+      '<div style="font-size:38px;font-weight:500;line-height:1;color:' + corNota(av.media) + '">' + av.media +
+      '<span style="font-size:18px;color:#555">/5</span></div>' +
+    '</div>' +
+    '<div style="background:#161616;border-radius:10px;padding:1rem;text-align:center">' +
+      '<div style="font-size:12px;color:#888;margin-bottom:6px">Script seguido</div>' +
+      '<div style="font-size:38px;font-weight:500;line-height:1;color:' + corScript(av.scriptPct) + '">' + av.scriptPct +
+      '<span style="font-size:18px;color:#555">%</span></div>' +
+    '</div>' +
     '</div>';
 
-  // Critérios
+  // Barras por criterio
   html += '<div class="criteria" style="margin-bottom:1.5rem;">';
-  for (const [k, label] of Object.entries(labels)) {
-    const c = crit[k] || {};
-    const v = Number(c.nota || 0);
-    const col = v>=7?"#5cb85c":v>=5?"#f5c518":"#f87171";
+  for (const [k, label] of CRITERIOS_V41) {
+    const n = av.notas[k];
+    const col = corNota(n);
+    const larg = n === "NA" ? 0 : n * 20;
     html += '<div class="crit-row">' +
-      '<span class="crit-label">'+label+'</span>' +
-      '<div class="bar-bg"><div class="bar-fg" style="width:'+(v*10)+'%;background:'+col+'"></div></div>' +
-      '<span class="crit-val" style="color:'+col+'">'+v+'/10</span>' +
+      '<span class="crit-label">' + label + '</span>' +
+      '<div class="bar-bg"><div class="bar-fg" style="width:' + larg + '%;background:' + col + '"></div></div>' +
+      '<span class="crit-val" style="color:' + col + '">' + (n === "NA" ? "NA" : n + "/5") + '</span>' +
       '</div>';
   }
   html += '</div>';
 
-  // Feedback por critério
-  html += '<div class="fb-block"><h4 style="margin-bottom:12px">📋 Feedback por etapa</h4></div>';
-  for (const [k, label] of Object.entries(labels)) {
-    const c = crit[k] || {};
-    const v = Number(c.nota || 0);
-    const col = v>=7?"#5cb85c":v>=5?"#f5c518":"#f87171";
-    html += '<div style="margin-bottom:16px;padding:12px 14px;background:#161616;border-radius:10px;border-left:3px solid '+col+'">' +
-      '<div style="font-size:13px;font-weight:500;color:#fff;margin-bottom:6px">'+label+' — <span style="color:'+col+'">'+v+'/10</span></div>' +
-      '<div style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:8px">'+(c.feedback||"")+'</div>';
+  const trechoHtml = (rotulo, t) => t
+    ? '<div style="font-size:12px;color:#9ca3af;margin:6px 0;padding:6px 10px;background:#101010;border-radius:6px;border-left:2px solid #333">' +
+      esc(rotulo) + ' ' + esc(t) + '</div>'
+    : '';
 
-    // Espontaneidade (só C2)
-    if (k === "c2" && c.espontaneidade) {
-      html += '<div style="font-size:12px;color:#a78bfa;margin-bottom:6px">🔍 Dor: '+(c.espontaneidade)+'</div>';
+  // Feedback por criterio
+  html += '<div class="fb-block"><h4 style="margin-bottom:12px">📋 Feedback por etapa</h4></div>';
+  for (const [k, label] of CRITERIOS_V41) {
+    const c = crit[k] || {};
+    const n = av.notas[k];
+    const col = corNota(n);
+    html += '<div style="margin-bottom:16px;padding:12px 14px;background:#161616;border-radius:10px;border-left:3px solid ' + col + '">' +
+      '<div style="font-size:13px;font-weight:500;color:#fff;margin-bottom:6px">' + label +
+        ' — <span style="color:' + col + '">' + (n === "NA" ? "NA" : n + "/5") + '</span></div>' +
+      '<div style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:8px">' + esc(c.feedback) + '</div>';
+
+    if (k === "investigacao") {
+      html += trechoHtml("💬 Dor:", c.trecho_dor);
+      html += trechoHtml("💬 Desdobramento:", c.trecho_desdobramento);
+      if (c.espontaneidade) html += '<div style="font-size:12px;color:#a78bfa;margin:6px 0">🔍 ' + esc(c.espontaneidade) + '</div>';
+      if (c.dores && c.dores.length) html += '<div style="font-size:12px;color:#888;margin:6px 0">Dores identificadas: ' + esc(c.dores.join(", ")) + '</div>';
     }
-    // Dores (C2)
-    if (k === "c2" && c.dores && c.dores.length) {
-      html += '<div style="font-size:12px;color:#888;margin-bottom:6px">Dores identificadas: '+(c.dores.join(", "))+'</div>';
+    if (k === "sonho") {
+      html += trechoHtml("💬 Sonho:", c.trecho);
+      if (c.sonhos && c.sonhos.length) html += '<div style="font-size:12px;color:#888;margin:6px 0">Sonhos identificados: ' + esc(c.sonhos.join(", ")) + '</div>';
     }
-    // Dados faltantes (C3)
-    if (k === "c3" && c.dados_faltantes && c.dados_faltantes.length) {
-      html += '<div style="font-size:12px;color:#f87171;margin-bottom:6px">Não coletou: '+(c.dados_faltantes.join(", "))+'</div>';
+    if (k === "solucao") {
+      html += trechoHtml("💬 Retomada da dor:", c.trecho_dor);
+      html += trechoHtml("💬 Entregável:", c.trecho_entregavel);
     }
-    // Próxima
-    if (c.proximo) {
-      html += '<div style="font-size:13px;color:#5cb85c;margin-top:4px">🛠 '+(c.proximo)+'</div>';
+    if (k === "agendamento") {
+      html += trechoHtml("💬 Oferta da reunião:", c.trecho_oferta);
     }
+    if (c.proximo) html += '<div style="font-size:13px;color:#5cb85c;margin-top:6px">🛠 ' + esc(c.proximo) + '</div>';
     html += '</div>';
   }
+
+  // BANT
+  const bant = result.bant || {};
+  const PILARES = [["budget","B — Budget"],["authority","A — Authority"],["need","N — Need"],["timeline","T — Timeline"]];
+  const corStatus = s => /^CONFIRMADO/i.test(s || "") ? "#5cb85c"
+    : /^PARCIAL/i.test(s || "") ? "#f5c518"
+    : /^DESQUALIFICADO/i.test(s || "") ? "#f87171" : "#777";
+  html += '<div class="fb-block" style="margin-top:1.25rem;padding:1rem;background:#161616;border-radius:10px">' +
+    '<h4 style="margin-bottom:10px">🔢 Qualificação BANT' +
+    (av.bantScore === null ? "" : ' — <span style="color:' + (av.bantScore >= 3 ? "#5cb85c" : av.bantScore >= 2 ? "#f5c518" : "#f87171") + '">' + av.bantScore + '/4</span>') +
+    '</h4>';
+  for (const [k, label] of PILARES) {
+    const p = bant[k] || {};
+    html += '<div style="margin-bottom:8px">' +
+      '<span style="font-size:12px;color:#ccc">' + label + ': </span>' +
+      '<span style="font-size:12px;font-weight:500;color:' + corStatus(p.status) + '">' + esc(p.status || "NÃO MAPEADO") + '</span>';
+    if (p.trecho) html += trechoHtml("", p.trecho);
+    if (k === "need" && p.espontaneidade) html += '<div style="font-size:12px;color:#a78bfa;margin:4px 0">🔍 ' + esc(p.espontaneidade) + '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Score do script — como chegou nele
+  const scr = result.script || {};
+  html += '<div class="fb-block" style="margin-top:12px;padding:1rem;background:#161616;border-radius:10px">' +
+    '<h4 style="margin-bottom:8px">📐 Script seguido — <span style="color:' + corScript(av.scriptPct) + '">' + av.scriptPct + '%</span></h4>' +
+    '<p style="font-size:13px;color:#ccc;line-height:1.7">' + esc(scr.justificativa) + '</p>';
+  if (scr.etapas_ausentes && scr.etapas_ausentes.length) {
+    html += '<div style="font-size:12px;color:#f87171;margin-top:6px">Etapas ausentes: ' + esc(scr.etapas_ausentes.join(", ")) + '</div>';
+  }
+  html += '</div>';
 
   // Prolixidade
   const prol = result.prolixidade || {};
   if (prol.detectada) {
-    html += '<div class="fb-block fb-danger"><h4>⚠️ Prolixidade detectada</h4><p>'+(prol.observacao||"")+'</p></div>';
+    html += '<div class="fb-block fb-danger" style="margin-top:12px"><h4>⚠️ Prolixidade detectada' +
+      (prol.turno ? ' — ' + esc(prol.turno) : "") + '</h4><p>' + esc(prol.observacao) + '</p>';
+    if (prol.deveria_ter_dito) html += '<p style="color:#5cb85c;margin-top:6px">🛠 ' + esc(prol.deveria_ter_dito) + '</p>';
+    html += '</div>';
   }
 
-  // Ponto de perda
+  // Ponto de perda do agendamento (REGRA 5)
   const pp = result.ponto_perda || {};
   if (pp.houve) {
-    html += '<div class="fb-block fb-danger"><h4>🚨 Ponto de perda do agendamento</h4><p>'+(pp.observacao||"")+'</p></div>';
+    html += '<div class="fb-block fb-danger" style="margin-top:12px"><h4>🚨 Ponto de perda do agendamento' +
+      (pp.turno ? ' — ' + esc(pp.turno) : "") + '</h4>' +
+      '<p>' + esc(pp.o_que_aconteceu) + '</p>';
+    if (pp.trecho) html += trechoHtml("💬", pp.trecho);
+    if (pp.causa_raiz) html += '<p style="margin-top:6px">📌 Causa raiz: ' + esc(pp.causa_raiz) + '</p>';
+    if (pp.o_que_fazer) html += '<p style="color:#5cb85c;margin-top:6px">🛠 ' + esc(pp.o_que_fazer) + '</p>';
+    html += '</div>';
   }
 
-  // Resumo do líder
+  // Resumo do lider
   if (result.resumo_lider) {
     html += '<div class="fb-block" style="margin-top:1.25rem;padding:1rem;background:#1a1a1a;border-radius:10px;border:0.5px solid #333">' +
       '<h4 style="margin-bottom:8px">💬 Resumo do líder</h4>' +
-      '<p style="font-size:14px;line-height:1.75;color:#ccc">'+(result.resumo_lider)+'</p>' +
+      '<p style="font-size:14px;line-height:1.75;color:#ccc">' + esc(result.resumo_lider) + '</p>' +
       '</div>';
   }
 
