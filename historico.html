@@ -43,6 +43,16 @@
   .score-mid { color: #f5c518; }
   .score-low { color: #f87171; }
 
+  #por-etapa { margin-bottom: 1.5rem; }
+  .etapas-titulo { font-size: 13px; color: #888; margin-bottom: 8px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .etapas-pior { font-size: 12px; color: #f87171; }
+  .etapas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .etapa-card { background: #141414; border: 0.5px solid #222; border-radius: 10px; padding: 0.7rem 0.85rem; }
+  .etapa-card.etapa-pior { border-color: #5a2a2a; }
+  .etapa-card .lbl { font-size: 11px; color: #777; margin-bottom: 3px; }
+  .etapa-card .val { font-size: 20px; font-weight: 500; }
+  .etapa-card .denom { font-size: 12px; color: #555; }
+
   #empty, #loading { color: #666; font-size: 14px; padding: 2rem 0; text-align: center; }
   #table-wrap { overflow-x: auto; background: #111; border: 0.5px solid #222; border-radius: 12px; padding: 0.5rem; }
 
@@ -62,6 +72,7 @@
   </div>
 
   <div class="summary-cards" id="summary"></div>
+  <div id="por-etapa" style="display:none"></div>
 
   <div id="loading">Carregando...</div>
   <div id="empty" style="display:none">Nenhuma simulação registrada ainda.</div>
@@ -73,6 +84,10 @@
           <th>SDR</th>
           <th>Persona</th>
           <th>Nível</th>
+          <th title="Investigação: clareza da dor">Inv.</th>
+          <th title="Descoberta do sonho">Sonho</th>
+          <th title="Solução: interesse na dor real">Sol.</th>
+          <th title="Agendamento: escassez e valor">Agend.</th>
           <th>Critérios</th>
           <th>Script</th>
           <th>BANT</th>
@@ -110,6 +125,29 @@ function media(rows, campo) {
 }
 const esc = s => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const ETAPAS = ["investigacao", "sonho", "solucao", "agendamento"];
+
+// A nota por etapa vem dentro da avaliacao completa, nao em coluna propria.
+// "NA" (etapa nao alcancada) nao e zero e nao entra em media nenhuma.
+function notaEtapa(r, etapa) {
+  const c = r.criterios && r.criterios.criterios && r.criterios.criterios[etapa];
+  if (!c) return null;
+  if (c.nota === "NA" || c.nota === "na") return "NA";
+  const n = Number(c.nota);
+  return Number.isFinite(n) ? n : null;
+}
+function celulaEtapa(r, etapa) {
+  const n = notaEtapa(r, etapa);
+  if (n === null) return '<td style="color:#555">—</td>';
+  if (n === "NA") return '<td style="color:#666">NA</td>';
+  return `<td class="score ${classeCriterios(n)}">${n}</td>`;
+}
+// Media da etapa no conjunto filtrado — mostra em qual etapa o time todo trava.
+function mediaEtapa(rows, etapa) {
+  const v = rows.map(r => notaEtapa(r, etapa)).filter(n => typeof n === "number");
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
 
 async function load() {
   document.getElementById("loading").style.display = "block";
@@ -165,6 +203,27 @@ function render(rows) {
     card("BANT médio", mBant === null ? "—" : mBant.toFixed(1) + "/4", mBant === null ? "" : classeBant(mBant)) +
     card("SDRs ativos", bySdr, "");
 
+  // Onde o time trava: media de cada etapa no conjunto filtrado.
+  const ROTULOS = { investigacao:"Investigação", sonho:"Sonho", solucao:"Solução", agendamento:"Agendamento" };
+  const porEtapa = ETAPAS.map(e => ({ e, m: mediaEtapa(rows, e) })).filter(x => x.m !== null);
+  const etapasEl = document.getElementById("por-etapa");
+  if (porEtapa.length) {
+    const pior = porEtapa.reduce((a, b) => (b.m < a.m ? b : a));
+    etapasEl.innerHTML =
+      '<div class="etapas-titulo">Média por etapa' +
+      `<span class="etapas-pior">ponto mais fraco: ${ROTULOS[pior.e]}</span></div>` +
+      '<div class="etapas-grid">' +
+      porEtapa.map(({ e, m }) =>
+        `<div class="etapa-card${e === pior.e ? " etapa-pior" : ""}">` +
+          `<div class="lbl">${ROTULOS[e]}</div>` +
+          `<div class="val ${classeCriterios(m)}">${m.toFixed(1)}<span class="denom">/5</span></div>` +
+        '</div>').join("") +
+      '</div>';
+    etapasEl.style.display = "block";
+  } else {
+    etapasEl.style.display = "none";
+  }
+
   document.getElementById("empty").style.display = "none";
   document.getElementById("table-wrap").style.display = "block";
   const tbody = document.getElementById("tbody");
@@ -174,6 +233,7 @@ function render(rows) {
       <td>${esc(r.sdr_name) || "—"}</td>
       <td>${esc(r.persona_name) || "—"}${r.persona_shop ? " · " + esc(r.persona_shop) : ""}</td>
       <td class="lvl-${esc(r.level) || ''}">${esc(r.level) || "—"}</td>
+      ${ETAPAS.map(e => celulaEtapa(r, e)).join("")}
       <td class="score ${typeof r.media_criterios === "number" ? classeCriterios(r.media_criterios) : ""}">${typeof r.media_criterios === "number" ? r.media_criterios.toFixed(1) + "/5" : "—"}</td>
       <td class="score ${typeof r.script_pct === "number" ? classeScript(r.script_pct) : ""}">${typeof r.script_pct === "number" ? r.script_pct + "%" : "—"}</td>
       <td class="score ${typeof r.bant_score === "number" ? classeBant(r.bant_score) : ""}">${typeof r.bant_score === "number" ? r.bant_score + "/4" : "—"}</td>
