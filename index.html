@@ -435,13 +435,41 @@ function goBack() {
 // ── Vozes ──
 function loadVoices() {
   return new Promise(resolve => {
+    // O lead simulado e um dono de barbearia, entao a voz precisa ser masculina.
+    // Cada SDR roda no proprio navegador, e a lista de vozes muda por maquina e
+    // por sistema — por isso a escolha vai por nomes conhecidos, nao por uma voz fixa.
+    // Em ordem de preferencia, nao alfabetica: vozes de homem adulto natural primeiro.
+    // "eddy" e "grandpa" existem no macOS mas soam caricatas — ficam no fim.
+    const MASC = ["felipe","reed","daniel","antonio","fabio","julio","nicolau","valerio",
+                  "donato","humberto","ricardo","rocko","eddy","grandpa"];
+    const FEM  = ["luciana","joana","flo","sandy","shelley","grandma","francisca","brenda",
+                  "leila","yara","thalita","elza","giovanna","leticia","maria","manuela"];
+    const nome = x => x.name.toLowerCase();
+    const ptBR = x => x.lang.startsWith("pt") && x.lang.includes("BR");
+    // Atencao: "female".includes("male") e true — o filtro antigo casava voz feminina.
+    // Aqui "male" precisa aparecer como palavra, e "female" desqualifica.
+    const diz_masculino = x => /\bmale\b/.test(nome(x)) && !/female/.test(nome(x));
+
+    // Percorre a preferencia, nao a lista do navegador: a ordem das vozes muda por
+    // maquina, e sem isso quem decide a voz e o sistema, nao a gente.
+    const porNome = (v, filtro) => {
+      for (const n of MASC) {
+        const achou = v.find(x => filtro(x) && nome(x).includes(n));
+        if (achou) return achou;
+      }
+      return null;
+    };
+
     const pick = () => {
       const v = speechSynthesis.getVoices();
-      voicePT = v.find(x => x.lang.startsWith("pt") && x.lang.includes("BR") && x.name.toLowerCase().includes("male"))
-             || v.find(x => x.lang.startsWith("pt") && x.lang.includes("BR"))
-             || v.find(x => x.lang.startsWith("pt"))
-             || v.find(x => x.lang.startsWith("es"))
-             || null;
+      voicePT =
+           porNome(v, ptBR)
+        || v.find(x => ptBR(x) && diz_masculino(x))
+        || porNome(v, x => x.lang.startsWith("pt"))
+        || v.find(x => ptBR(x) && !FEM.some(n => nome(x).includes(n)) && !/female/.test(nome(x)))
+        || v.find(x => ptBR(x))
+        || v.find(x => x.lang.startsWith("pt"))
+        || null;
       resolve();
     };
     if (speechSynthesis.getVoices().length) pick();
