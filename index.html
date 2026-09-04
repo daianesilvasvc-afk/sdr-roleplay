@@ -843,29 +843,41 @@ function lerAvaliacao(result) {
     if (d.nota !== "NA") pontuadas.push(d.nota);
   }
   if (!pontuadas.length) return null;  // tudo NA: nao ha o que pontuar
-  const b = result.bant;
   const PILARES_BANT = ["budget", "authority", "need", "timeline"];
 
-  // Timeline so pode ser CONFIRMADO se o SDR de fato investigou urgencia, e a
-  // evidencia disso e o item `urgencia` do checklist. Sem essa amarra o modelo
-  // confirmava T em ligacao onde ninguem perguntou prazo — e o painel do gestor
-  // dizia "altamente qualificado" para um lead que nem foi sondado.
-  // Mesma logica para o caixa: sem faturamento e caixa validados, Budget nao fecha.
-  const exige = (pilar, condicao) => {
-    const p = b && b[pilar];
-    if (!p || !/^CONFIRMADO/i.test(p.status || "") || condicao) return;
-    p.status = "NÃO MAPEADO";
-    p.rebaixado = true;   // o render mostra o motivo para o SDR
+  // BANT: piso deterministico do checklist, nuance so para baixo.
+  //
+  // O status base de cada pilar vem do item que prova que o SDR investigou —
+  // sem isso o modelo confirmava Timeline em ligacao onde ninguem perguntou
+  // prazo, e o painel dizia "altamente qualificado" para um lead nao sondado.
+  // O modelo ainda pode rebaixar um CONFIRMADO para PARCIAL (o SDR perguntou
+  // mas a resposta foi vaga), e SO isso: nunca promover, nunca derrubar para
+  // NAO MAPEADO, e apenas com trecho que justifique. Sem trecho, o piso vale.
+  const BASE_BANT = {
+    budget:    () => marcado.caixa === false ? "DESQUALIFICADO"
+                   : marcado.faturamento === true ? "CONFIRMADO" : "NÃO MAPEADO",
+    authority: () => marcado.decisor === true ? "CONFIRMADO" : "NÃO MAPEADO",
+    need:      () => marcado.dor_espontanea === true ? "CONFIRMADO" : "NÃO MAPEADO",
+    timeline:  () => marcado.urgencia === true ? "CONFIRMADO" : "NÃO MAPEADO",
   };
-  exige("timeline", marcado.urgencia === true);
-  exige("authority", marcado.decisor === true);
-  exige("budget", marcado.faturamento === true && marcado.caixa !== false);
+  const b = result.bant || (result.bant = {});
+  for (const k of PILARES_BANT) {
+    const p = b[k] || (b[k] = {});
+    const base = BASE_BANT[k]();
+    const querParcial = /^PARCIAL/i.test(p.status || "");
+    if (base === "CONFIRMADO" && querParcial && p.trecho) {
+      p.status = "PARCIAL";
+      p.rebaixadoPeloModelo = true;
+    } else {
+      if (p.status && p.status !== base) p.statusDescartado = p.status;
+      p.status = base;
+    }
+  }
 
-  // BANT contado a partir dos status dos pilares, nao do campo "score" do modelo —
+  // BANT contado a partir dos status, nao do campo "score" do modelo —
   // mesmo motivo do score geral: o numero que ele reporta divergiu da propria regra.
-  const bantScore = b
-    ? PILARES_BANT.filter(k => /^CONFIRMADO/i.test((b[k] && b[k].status) || "")).length
-    : null;
+  const bantScore = PILARES_BANT
+    .filter(k => /^CONFIRMADO/i.test(b[k].status || "")).length;
   return {
     notas,
     media: Math.round(pontuadas.reduce((a, b) => a + b, 0) / pontuadas.length * 10) / 10,
@@ -1055,7 +1067,8 @@ REGRA DURA: só CONFIRMADO se o SDR perguntou explicitamente sobre decisão/sóc
 N — NEED: problema concreto, espontâneo e reconhecido? Dor induzida = PARCIAL no máximo.
 T — TIMELINE: urgência com prazo? Aceite com entusiasmo ou resistência?
 REGRA DURA: só marque CONFIRMADO se houver trecho em que o SDR PERGUNTOU sobre prazo/urgência E o lead respondeu com um prazo. Se o SDR nunca perguntou, o pilar é NÃO MAPEADO — não importa o quanto o lead pareceu interessado. Aceitar o agendamento não é urgência; resistir ao primeiro horário oferecido é sinal contrário. Não infira urgência do tom do lead.
-Cada pilar CONFIRMADO vale 1 ponto no score BANT (0 a 4).
+COMO O STATUS É DECIDIDO: o status base de cada pilar é calculado fora daqui, a partir do checklist da seção 6 — faturamento e caixa para Budget, decisor para Authority, dor espontânea para Need, urgência para Timeline. Você NÃO precisa marcar CONFIRMADO nem NÃO MAPEADO: será ignorado.
+A única coisa que você decide aqui: se o SDR investigou o pilar mas a resposta do lead não fechou (vaga, evasiva, contraditória), marque o status como PARCIAL e OBRIGATORIAMENTE inclua o trecho que prova isso. PARCIAL sem trecho é descartado. Não devolva score — ele é contado dos status.
 
 ## 8. CONTEXTO DESTE ROLEPLAY
 ` + gabarito + `
@@ -1079,7 +1092,7 @@ NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculad
 "agendamento":{"feedback":"voz do líder","trecho_oferta":"","proximo":"Na próxima: [frase exata]"}},
 "prolixidade":{"detectada":false,"turno":"","observacao":"o que foi dito em excesso e o impacto","deveria_ter_dito":"uma frase"},
 "ponto_perda":{"houve":false,"turno":"","o_que_aconteceu":"1-2 frases","trecho":"","causa_raiz":"a falha técnica específica","o_que_fazer":"uma ação concreta em segunda pessoa"},
-"bant":{"budget":{"status":"CONFIRMADO ou PARCIAL ou NÃO MAPEADO ou DESQUALIFICADO","trecho":""},"authority":{"status":"","trecho":""},"need":{"status":"","trecho":"","espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa"},"timeline":{"status":"","trecho":""},"score":0},
+"bant":{"budget":{"status":"CONFIRMADO ou PARCIAL ou NÃO MAPEADO ou DESQUALIFICADO","trecho":""},"authority":{"status":"","trecho":""},"need":{"status":"","trecho":"","espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa"},"timeline":{"status":"","trecho":""}},
 "script":{"checklist":{"nome_do_item":true},"observacao":"1-2 frases sobre o que mais custou aderência ao roteiro"},
 "resumo_lider":"3 a 5 frases: padrão identificado, onde é forte, onde é fraco, e UM foco único e mensurável para a próxima ligação. Termine sempre com o foco."}
 
@@ -1264,7 +1277,11 @@ function renderScore(result) {
     html += '<div style="margin-bottom:8px">' +
       '<span style="font-size:12px;color:#ccc">' + label + ': </span>' +
       '<span style="font-size:12px;font-weight:500;color:' + corStatus(p.status) + '">' + esc(p.status || "NÃO MAPEADO") + '</span>' +
-      (p.rebaixado ? '<span style="font-size:11px;color:#f5c518;margin-left:6px">rebaixado — o SDR não investigou este pilar</span>' : '');
+      (p.rebaixadoPeloModelo
+        ? '<span style="font-size:11px;color:#f5c518;margin-left:6px">o SDR perguntou, mas a resposta não fechou</span>'
+        : p.statusDescartado
+          ? '<span style="font-size:11px;color:#666;margin-left:6px">derivado do checklist</span>'
+          : '');
     if (p.trecho) html += trechoHtml("", p.trecho);
     if (k === "need" && p.espontaneidade) html += '<div style="font-size:12px;color:#a78bfa;margin:4px 0">🔍 ' + esc(p.espontaneidade) + '</div>';
     html += '</div>';
