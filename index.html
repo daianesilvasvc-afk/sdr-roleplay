@@ -529,9 +529,13 @@ function buildSystem(p) {
 // ── API ──
 async function callAPI(messages, system, opts) {
   const o = opts || {};
-  // Sem temperature: os dois lados rodam no default do provedor.
   // O worker escolhe o modelo a partir de `task` — persona (rapido) ou avaliacao (qualidade).
   const payload = { task: o.task || "persona", max_tokens: o.max_tokens || 8000, system, messages };
+  // temperature so vai quando pedida. A persona fica no default (barbeiro variado, bom pra treino);
+  // a avaliacao roda em 0 porque sem isso a nota oscila: medido na mesma transcricao, 3 rodadas,
+  // o script espalhou 15 pontos (50-65%) sem temperature contra 5 pontos (65-70%) com temperature 0,
+  // e a Investigacao pulou de 3 para 5. Nao remover sem medir de novo.
+  if (typeof o.temperature === "number") payload.temperature = o.temperature;
   const resp = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -910,7 +914,7 @@ Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. Toda "nota" 
 ` + transcript;
 
   try {
-    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { task: "avaliacao", max_tokens: 16000 });
+    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { temperature: 0, task: "avaliacao", max_tokens: 16000 });
     let cleaned = raw.replace(/```json|```/g, "").trim();
 
     // Tenta parse direto
