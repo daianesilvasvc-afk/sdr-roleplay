@@ -529,11 +529,9 @@ function buildSystem(p) {
 // ── API ──
 async function callAPI(messages, system, opts) {
   const o = opts || {};
+  // Sem temperature: os dois lados rodam no default do provedor.
   // O worker escolhe o modelo a partir de `task` — persona (rapido) ou avaliacao (qualidade).
   const payload = { task: o.task || "persona", max_tokens: o.max_tokens || 8000, system, messages };
-  // temperature so vai quando pedida — a persona continua criativa (default do provedor),
-  // a avaliacao roda em 0 para a mesma call sempre dar a mesma nota
-  if (typeof o.temperature === "number") payload.temperature = o.temperature;
   const resp = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -699,12 +697,18 @@ function lerAvaliacao(result) {
   if (!pontuadas.length) return null;  // tudo NA: nao ha o que pontuar
   const pct = Number(result.script && result.script.percentual);
   if (!Number.isFinite(pct) || pct < 0 || pct > 100) return null;
-  const bant = Number(result.bant && result.bant.score);
+  // BANT contado a partir dos status dos pilares, nao do campo "score" do modelo —
+  // mesmo motivo do score geral: o numero que ele reporta divergiu da propria regra.
+  const b = result.bant;
+  const PILARES_BANT = ["budget", "authority", "need", "timeline"];
+  const bantScore = b
+    ? PILARES_BANT.filter(k => /^CONFIRMADO/i.test((b[k] && b[k].status) || "")).length
+    : null;
   return {
     notas,
     media: Math.round(pontuadas.reduce((a, b) => a + b, 0) / pontuadas.length * 10) / 10,
     scriptPct: Math.round(pct),
-    bantScore: Number.isFinite(bant) && bant >= 0 && bant <= 4 ? Math.round(bant) : null
+    bantScore
   };
 }
 
@@ -906,7 +910,7 @@ Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. Toda "nota" 
 ` + transcript;
 
   try {
-    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { temperature: 0, task: "avaliacao", max_tokens: 16000 });
+    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { task: "avaliacao", max_tokens: 16000 });
     let cleaned = raw.replace(/```json|```/g, "").trim();
 
     // Tenta parse direto
