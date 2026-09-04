@@ -370,10 +370,22 @@ const DIFF_META = {
   aleatorio:{ label:"aleatório", bg:"#1a103a", color:"#a78bfa" },
 };
 
+// As duas objecoes do roteiro — "ja tenho outra solucao" e preco — precisam
+// acontecer, senao o SDR nunca treina contorno. Sempre DEPOIS do SDR apresentar
+// a consultoria: objecao antes disso e fora de sequencia e nao treina nada.
+const OBJ_ROTEIRO =
+  "Depois que o SDR apresentar a consultoria, levante ao menos UMA destas duas objeções, com as suas palavras: " +
+  "(a) você já tem outra solução — sistema, mentoria ou método que já usa; " +
+  "(b) preço — pergunte quanto custa ou diga que está apertado. " +
+  "Nunca levante objeção antes de o SDR apresentar a consultoria. ";
+
 const DIFF_RULES = {
-  facil:   "Seja receptivo, demonstre interesse genuíno, faça no máximo 1 objeção leve e aceite facilmente uma proposta de agendamento.",
-  medio:   "Faça 1-2 objeções naturais (preço, tempo, contrato). Resista um pouco, mas pode ser convencido com bons argumentos e empatia.",
-  dificil: "Seja bastante cético. Mencione que já usou sistema parecido e se frustrou. Questione cada benefício. Só se interesse se o SDR apresentar provas concretas e contornar bem as objeções.",
+  facil:   "Seja receptivo e demonstre interesse genuíno. " + OBJ_ROTEIRO +
+           "Aceite o primeiro contorno razoável e siga para o agendamento.",
+  medio:   "Resista um pouco. " + OBJ_ROTEIRO +
+           "Levante as DUAS objeções, uma de cada vez. Só aceite se o SDR validar antes de reposicionar e devolver com pergunta — se ele recuar ou responder com discurso longo, mantenha a objeção de pé.",
+  dificil: "Seja bastante cético e questione cada benefício. " + OBJ_ROTEIRO +
+           "Levante as DUAS objeções e, se o contorno for genérico, volte à mesma objeção uma segunda vez com outras palavras. Só se interesse com prova concreta. Se o SDR falar de preço do programa em vez de deixar claro que a consultoria é gratuita, desconfie em voz alta.",
 };
 
 const API_URL = "https://withered-wildflower-db78.daiane-silvasvc.workers.dev";
@@ -701,6 +713,76 @@ async function getGreeting() {
   }
 }
 
+// ── Checklist do roteiro de agendamento ──
+// O "% de script seguido" NAO vem mais do modelo: ele marca item por item e o
+// codigo soma. A aritmetica livre do modelo espalhava 25 pontos na mesma call.
+// "NA" = item nao aplicavel (etapa que nao existiu na ligacao); sai do denominador.
+const CHECKLIST_SCRIPT = [
+  { grupo: "Descoberta e dor", peso: 25, itens: [
+    ["dor_espontanea",      "Dor verbalizada pelo lead sem o SDR sugerir o problema"],
+    ["aprofundou",          "Ao menos duas perguntas de aprofundamento depois da primeira dor"],
+    ["espelhou",            "Espelhou a dor com as palavras do lead e obteve confirmação explícita"],
+  ]},
+  { grupo: "Visão de futuro", peso: 15, itens: [
+    ["sonho_do_lead",       "O lead descreveu o cenário dele em 12 meses — não o SDR por ele"],
+    ["sonho_numero",        "Obteve um número: faturamento ou meta que o lead quer bater"],
+    ["sonho_pessoal",       "Explorou o impacto na vida pessoal (tempo, renda, sair da cadeira)"],
+  ]},
+  { grupo: "Qualificação", peso: 25, itens: [
+    ["cnpj",                "CNPJ ativo confirmado"],
+    ["faturamento",         "Faturamento confirmado"],
+    ["caixa",               "Caixa de R$300 validado — NA quando o faturamento é R$10k ou mais"],
+    ["equipe",              "Estrutura e tamanho da equipe"],
+    ["decisor",             "Decisor: se a decisão é só do lead ou tem sócio envolvido"],
+    ["urgencia",            "Urgência com prazo — aceite por educação não conta"],
+  ]},
+  { grupo: "Objeções", peso: 10, itens: [
+    ["objecao_validou",     "Validou a objeção antes de reposicionar"],
+    ["objecao_contornou",   "Contornou com pergunta ou prova, sem recuar nem discursar"],
+    ["objecao_gratuidade",  "Em objeção de preço, deixou claro que a consultoria não tem custo"],
+  ]},
+  { grupo: "Solução e fechamento", peso: 20, itens: [
+    ["citou_dor",           "Citou a dor confirmada antes de apresentar a consultoria"],
+    ["entregavel",          "Explicou o entregável, não só que o lead vai falar com um especialista"],
+    ["compromisso_antes",   "Pediu o compromisso de foco ANTES de passar o horário"],
+    ["data_hora",           "Fechou data e horário específicos"],
+    ["gratuito",            "Deixou claro que a consultoria é gratuita"],
+    ["confirmacao_escrita", "Pediu confirmação por escrito com prazo curto"],
+    ["recap",               "Recapitulou data, hora e pauta antes de encerrar"],
+    ["sem_escassez_falsa",  "Não inventou escassez de agenda"],
+  ]},
+  { grupo: "Pós-agendamento", peso: 5, itens: [
+    ["alinhou_expectativa", "Alinhou duração, formato e postura esperada"],
+    ["combinou_whatsapp",   "Combinou o envio no WhatsApp"],
+    ["prova_social_final",  "Mandou prova social para aquecer até a reunião"],
+  ]},
+];
+
+// Soma o checklist. Grupo sem nenhum item aplicavel sai da conta inteira, e os
+// pesos restantes se renormalizam — e por isso uma call desqualificada no CNPJ
+// nao e punida pelas etapas que deixaram de existir.
+function somarChecklist(marcado) {
+  const m = marcado || {};
+  const grupos = [];
+  let pesoTotal = 0, pontos = 0;
+  for (const g of CHECKLIST_SCRIPT) {
+    const aplicaveis = [], feitos = [];
+    for (const [chave, rotulo] of g.itens) {
+      const v = m[chave];
+      if (v === "NA" || v === "na" || v == null) continue;
+      aplicaveis.push([chave, rotulo, v === true]);
+      if (v === true) feitos.push(chave);
+    }
+    if (!aplicaveis.length) { grupos.push({ ...g, aplicaveis, fracao: null }); continue; }
+    const fracao = feitos.length / aplicaveis.length;
+    pesoTotal += g.peso;
+    pontos += g.peso * fracao;
+    grupos.push({ ...g, aplicaveis, fracao });
+  }
+  if (!pesoTotal) return null;
+  return { pct: Math.round(pontos / pesoTotal * 100), grupos };
+}
+
 // ── Avaliação ──
 // Régua v4.1 (NEPQ + BANT): 4 critérios de 0 a 5 + score de script 0-100%.
 const CRITERIOS_V41 = [
@@ -727,19 +809,38 @@ function lerAvaliacao(result) {
     pontuadas.push(n);
   }
   if (!pontuadas.length) return null;  // tudo NA: nao ha o que pontuar
-  const pct = Number(result.script && result.script.percentual);
-  if (!Number.isFinite(pct) || pct < 0 || pct > 100) return null;
-  // BANT contado a partir dos status dos pilares, nao do campo "score" do modelo —
-  // mesmo motivo do score geral: o numero que ele reporta divergiu da propria regra.
+  // O percentual do script e somado do checklist, nunca lido do modelo.
+  const soma = somarChecklist(result.script && result.script.checklist);
+  if (!soma) return null;
   const b = result.bant;
   const PILARES_BANT = ["budget", "authority", "need", "timeline"];
+
+  // Timeline so pode ser CONFIRMADO se o SDR de fato investigou urgencia, e a
+  // evidencia disso e o item `urgencia` do checklist. Sem essa amarra o modelo
+  // confirmava T em ligacao onde ninguem perguntou prazo — e o painel do gestor
+  // dizia "altamente qualificado" para um lead que nem foi sondado.
+  // Mesma logica para o caixa: sem faturamento e caixa validados, Budget nao fecha.
+  const marcado = (result.script && result.script.checklist) || {};
+  const exige = (pilar, condicao) => {
+    const p = b && b[pilar];
+    if (!p || !/^CONFIRMADO/i.test(p.status || "") || condicao) return;
+    p.status = "NÃO MAPEADO";
+    p.rebaixado = true;   // o render mostra o motivo para o SDR
+  };
+  exige("timeline", marcado.urgencia === true);
+  exige("authority", marcado.decisor === true);
+  exige("budget", marcado.faturamento === true && marcado.caixa !== false);
+
+  // BANT contado a partir dos status dos pilares, nao do campo "score" do modelo —
+  // mesmo motivo do score geral: o numero que ele reporta divergiu da propria regra.
   const bantScore = b
     ? PILARES_BANT.filter(k => /^CONFIRMADO/i.test((b[k] && b[k].status) || "")).length
     : null;
   return {
     notas,
     media: Math.round(pontuadas.reduce((a, b) => a + b, 0) / pontuadas.length * 10) / 10,
-    scriptPct: Math.round(pct),
+    scriptPct: soma.pct,
+    scriptGrupos: soma.grupos,
     bantScore
   };
 }
@@ -766,6 +867,13 @@ endBtn.addEventListener("click", async () => {
     "Faturamento: " + fatGab + " | CNPJ: " + cnpjGab + " | " + socioGab + "\n" +
     "Dor: " + persona.dor + "\n" +
     "DISC: " + persona.disc + " | Comportamento: " + persona.comportamento.substring(0,120) + "...\n";
+
+  // O texto do checklist no prompt e gerado da mesma constante que faz a soma,
+  // para prompt e pontuacao nunca divergirem.
+  const checklistTexto = CHECKLIST_SCRIPT.map(g =>
+    g.grupo + " (peso " + g.peso + ")\n" +
+    g.itens.map(([chave, rotulo]) => "- " + chave + ": " + rotulo).join("\n")
+  ).join("\n\n");
 
   const evalPrompt =
 `# AGENTE DE ANÁLISE DE LIGAÇÕES — PRÉ-VENDAS PODIUM
@@ -849,18 +957,14 @@ Ajuste de roleplay: avalie exclusivamente o SDR. Se o lead simulado entregou a d
 Em dúvida entre duas notas, atribua a MENOR.
 Fluência, simpatia e ritmo NÃO influenciam a nota.
 
-## 6. SCORE DO SCRIPT (0-100%)
-Avalie o quanto o SDR seguiu o script e os processos obrigatórios:
-- Seguiu a ordem lógica? Abertura → Investigação → Sonho → Solução → Agendamento
-- Validou CNPJ, Faturamento e Tamanho da Equipe?
-- REGRA CRÍTICA: se faturamento < R$10k, validou se o lead tem caixa/reserva para investir? Se não validou, penalize o score.
-- Aplicou BANT completo? Ausência de qualquer pilar penaliza o score em até 10%.
-Regras de cálculo — anti-leniência:
-- Cada etapa AUSENTE desconta no mínimo 15% do score total
-- Etapa genérica, sem personalização = no máximo 50% do peso da etapa
-- Score acima de 80% exige TODAS as etapas com evidência explícita de personalização
-- Score acima de 90% é reservado a ligações em que o SDR conectou todas as etapas à dor real, aplicou BANT completo e agendou com personalização real
-- Resistência do lead não contornada = penalização. Não é culpa do lead, é falha de técnica
+## 6. CHECKLIST DO ROTEIRO
+Marque cada item abaixo com true, false ou "NA". NÃO calcule percentual nenhum: o percentual é somado fora daqui a partir das suas marcações, e qualquer número que você devolver será ignorado.
+- true = o SDR fez, e existe trecho na transcrição que prova
+- false = o SDR não fez, ou fez de um jeito que não conta
+- "NA" = a etapa não existiu nesta ligação e isso não é falha do SDR. Exemplos: o lead nunca objetou; o faturamento é R$10k ou mais, então o caixa de R$300 não se aplica; a ligação foi legitimamente desqualificada no CNPJ e as etapas seguintes deixaram de existir.
+Em dúvida entre true e false, marque false. "NA" é só para etapa inexistente — nunca para etapa que o SDR simplesmente deixou de fazer.
+
+` + checklistTexto + `
 
 ## 7. CRITÉRIOS
 
@@ -916,8 +1020,10 @@ Regras anti-leniência:
 - Resistência não contornada = sinal negativo para Timeline e Need
 B — BUDGET: faturamento mensal; se < 10k, caixa validado? CONFIRMADO exige faturamento declarado + caixa validado se < 10k.
 A — AUTHORITY: é o decisor? Há outro envolvido? "Sou o dono" sem autonomia demonstrada = PARCIAL.
+REGRA DURA: só CONFIRMADO se o SDR perguntou explicitamente sobre decisão/sócio. Ser dono não implica autonomia — não infira do contexto.
 N — NEED: problema concreto, espontâneo e reconhecido? Dor induzida = PARCIAL no máximo.
-T — TIMELINE: urgência com prazo? Aceite com entusiasmo ou resistência? Aceitar agendamento por educação não é urgência.
+T — TIMELINE: urgência com prazo? Aceite com entusiasmo ou resistência?
+REGRA DURA: só marque CONFIRMADO se houver trecho em que o SDR PERGUNTOU sobre prazo/urgência E o lead respondeu com um prazo. Se o SDR nunca perguntou, o pilar é NÃO MAPEADO — não importa o quanto o lead pareceu interessado. Aceitar o agendamento não é urgência; resistir ao primeiro horário oferecido é sinal contrário. Não infira urgência do tom do lead.
 Cada pilar CONFIRMADO vale 1 ponto no score BANT (0 a 4).
 
 ## 8. CONTEXTO DESTE ROLEPLAY
@@ -932,7 +1038,7 @@ Cada pilar CONFIRMADO vale 1 ponto no score BANT (0 a 4).
 - Turnos de fala do SDR nesta call: ` + numTurnos + `
 
 ## 9. FORMATO DE SAÍDA
-Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. Toda "nota" é um número de 0 a 5 ou a string "NA". Todo "trecho" é citação literal de no máximo 30 palavras, prefixada por 🟢 SDR ou 🟣 CLIENTE e por "⏱ turno #N"; use "" quando não houver trecho.
+Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. O objeto "checklist" precisa conter TODOS os itens da seção 6, cada um com true, false ou "NA" — item ausente é tratado como não avaliado. Toda "nota" é um número de 0 a 5 ou a string "NA". Todo "trecho" é citação literal de no máximo 30 palavras, prefixada por 🟢 SDR ou 🟣 CLIENTE e por "⏱ turno #N"; use "" quando não houver trecho.
 {"sintese":"uma frase do líder sobre a ligação inteira",
 "criterios":{
 "investigacao":{"nota":0,"feedback":"voz do líder: o que fez certo (se houver) / o que errou + turno + impacto / análise de espontaneidade","trecho_dor":"","trecho_desdobramento":"","dores":["dor 1"],"espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa","proximo":"Na próxima: [frase exata que deveria ter usado]"},
@@ -942,7 +1048,7 @@ Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. Toda "nota" 
 "prolixidade":{"detectada":false,"turno":"","observacao":"o que foi dito em excesso e o impacto","deveria_ter_dito":"uma frase"},
 "ponto_perda":{"houve":false,"turno":"","o_que_aconteceu":"1-2 frases","trecho":"","causa_raiz":"a falha técnica específica","o_que_fazer":"uma ação concreta em segunda pessoa"},
 "bant":{"budget":{"status":"CONFIRMADO ou PARCIAL ou NÃO MAPEADO ou DESQUALIFICADO","trecho":""},"authority":{"status":"","trecho":""},"need":{"status":"","trecho":"","espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa"},"timeline":{"status":"","trecho":""},"score":0},
-"script":{"percentual":0,"etapas_ausentes":["etapa"],"justificativa":"como chegou nesse percentual, citando os descontos aplicados"},
+"script":{"checklist":{"nome_do_item":true},"observacao":"1-2 frases sobre o que mais custou aderência ao roteiro"},
 "resumo_lider":"3 a 5 frases: padrão identificado, onde é forte, onde é fraco, e UM foco único e mensurável para a próxima ligação. Termine sempre com o foco."}
 
 ## 10. CONVERSA
@@ -1117,20 +1223,40 @@ function renderScore(result) {
     const p = bant[k] || {};
     html += '<div style="margin-bottom:8px">' +
       '<span style="font-size:12px;color:#ccc">' + label + ': </span>' +
-      '<span style="font-size:12px;font-weight:500;color:' + corStatus(p.status) + '">' + esc(p.status || "NÃO MAPEADO") + '</span>';
+      '<span style="font-size:12px;font-weight:500;color:' + corStatus(p.status) + '">' + esc(p.status || "NÃO MAPEADO") + '</span>' +
+      (p.rebaixado ? '<span style="font-size:11px;color:#f5c518;margin-left:6px">rebaixado — o SDR não investigou este pilar</span>' : '');
     if (p.trecho) html += trechoHtml("", p.trecho);
     if (k === "need" && p.espontaneidade) html += '<div style="font-size:12px;color:#a78bfa;margin:4px 0">🔍 ' + esc(p.espontaneidade) + '</div>';
     html += '</div>';
   }
   html += '</div>';
 
-  // Score do script — como chegou nele
+  // Script seguido — o checklist inteiro, para o SDR ver exatamente o que faltou
   const scr = result.script || {};
   html += '<div class="fb-block" style="margin-top:12px;padding:1rem;background:#161616;border-radius:10px">' +
-    '<h4 style="margin-bottom:8px">📐 Script seguido — <span style="color:' + corScript(av.scriptPct) + '">' + av.scriptPct + '%</span></h4>' +
-    '<p style="font-size:13px;color:#ccc;line-height:1.7">' + esc(scr.justificativa) + '</p>';
-  if (scr.etapas_ausentes && scr.etapas_ausentes.length) {
-    html += '<div style="font-size:12px;color:#f87171;margin-top:6px">Etapas ausentes: ' + esc(scr.etapas_ausentes.join(", ")) + '</div>';
+    '<h4 style="margin-bottom:10px">📐 Roteiro seguido — <span style="color:' + corScript(av.scriptPct) + '">' + av.scriptPct + '%</span></h4>';
+  if (scr.observacao) {
+    html += '<p style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:12px">' + esc(scr.observacao) + '</p>';
+  }
+  for (const g of av.scriptGrupos) {
+    if (g.fracao === null) {
+      html += '<div style="font-size:12px;color:#555;margin-bottom:10px">' + esc(g.grupo) +
+        ' <span style="color:#444">— não se aplicou a esta ligação</span></div>';
+      continue;
+    }
+    const feitos = g.aplicaveis.filter(i => i[2]).length;
+    const col = g.fracao >= 0.8 ? "#5cb85c" : g.fracao >= 0.5 ? "#f5c518" : "#f87171";
+    html += '<div style="margin-bottom:12px">' +
+      '<div style="font-size:12px;color:#999;margin-bottom:5px;display:flex;justify-content:space-between;gap:8px">' +
+        '<span>' + esc(g.grupo) + '</span>' +
+        '<span style="color:' + col + '">' + feitos + '/' + g.aplicaveis.length + '</span>' +
+      '</div>';
+    for (const [, rotulo, ok] of g.aplicaveis) {
+      html += '<div style="font-size:12px;line-height:1.6;color:' + (ok ? "#7a7a7a" : "#e5e5e5") + '">' +
+        '<span style="color:' + (ok ? "#5cb85c" : "#f87171") + ';margin-right:6px">' + (ok ? "✓" : "✗") + '</span>' +
+        esc(rotulo) + '</div>';
+    }
+    html += '</div>';
   }
   html += '</div>';
 
