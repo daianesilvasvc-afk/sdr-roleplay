@@ -744,10 +744,10 @@ const CHECKLIST_SCRIPT = [
   { grupo: "Solução e fechamento", peso: 20, itens: [
     ["citou_dor",           "Citou a dor confirmada antes de apresentar a consultoria"],
     ["entregavel",          "Explicou o entregável, não só que o lead vai falar com um especialista"],
-    ["compromisso_antes",   "Pediu o compromisso de foco ANTES de passar o horário"],
+    ["compromisso_antes",   "Pediu o compromisso de foco quando nenhum horário ainda tinha sido oferecido. Se algum horário já havia sido dito, marque false — mesmo que o SDR tenha pedido foco depois"],
     ["data_hora",           "Fechou data e horário específicos"],
     ["gratuito",            "Deixou claro que a consultoria é gratuita"],
-    ["confirmacao_escrita", "Pediu confirmação por escrito com prazo curto"],
+    ["confirmacao_escrita", "Pediu que o LEAD respondesse a confirmação por escrito, com prazo em minutos. Prometer enviar mensagem, link ou convite não conta — o pedido tem que ser de resposta do lead"],
     ["recap",               "Recapitulou data, hora e pauta antes de encerrar"],
     ["sem_escassez_falsa",  "Não inventou escassez de agenda"],
   ]},
