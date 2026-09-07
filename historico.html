@@ -62,7 +62,7 @@
 <body>
 <div id="app">
   <div class="title">Histórico de Simulações — SDR</div>
-  <div class="sub">Régua v4.1 (NEPQ + BANT) — critérios de 0 a 5 e % de script seguido.</div>
+  <div class="sub">Aderência ao roteiro de agendamento (0–5 por etapa) e qualificação BANT. Os números medem quais etapas foram cumpridas — a qualidade da execução está no feedback de cada simulação.</div>
 
   <div class="filters">
     <select id="sdr-filter" onchange="applyFilter()">
@@ -88,7 +88,7 @@
           <th title="Descoberta do sonho">Sonho</th>
           <th title="Solução: interesse na dor real">Sol.</th>
           <th title="Agendamento: escassez e valor">Agend.</th>
-          <th>Critérios</th>
+          <th title="Aderência ao roteiro: fração das etapas cumpridas, não qualidade de execução">Aderência</th>
           <th>Script</th>
           <th>BANT</th>
           <th>Síntese do líder</th>
@@ -132,9 +132,9 @@ const ETAPAS = ["investigacao", "sonho", "solucao", "agendamento"];
 // index.html de proposito: o checklist salvo e a fonte de verdade, entao o painel
 // consegue mostrar a nota mesmo em registro gravado antes de ela ser persistida.
 const CRITERIO_ITENS = {
-  investigacao: ["dor_espontanea", "aprofundou", "espelhou"],
+  investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou"],
   sonho:        ["sonho_do_lead", "sonho_numero", "sonho_pessoal"],
-  solucao:      ["citou_dor", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
+  solucao:      ["citou_dor", "conectou_palavras", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
   agendamento:  ["compromisso_antes", "data_hora", "gratuito", "confirmacao_escrita", "recap",
                  "sem_escassez_falsa", "alinhou_expectativa", "combinou_whatsapp", "prova_social_final"],
 };
@@ -225,7 +225,7 @@ function render(rows) {
     `<div class="sum-card"><div class="lbl">${lbl}</div><div class="val ${cls}">${val}</div></div>`;
   summary.innerHTML =
     card("Simulações", rows.length, "") +
-    card("Média critérios", mCrit === null ? "—" : mCrit.toFixed(1) + "/5", mCrit === null ? "" : classeCriterios(mCrit)) +
+    card("Aderência média", mCrit === null ? "—" : mCrit.toFixed(1) + "/5", mCrit === null ? "" : classeCriterios(mCrit)) +
     card("Script médio", mScript === null ? "—" : Math.round(mScript) + "%", mScript === null ? "" : classeScript(mScript)) +
     card("BANT médio", mBant === null ? "—" : mBant.toFixed(1) + "/4", mBant === null ? "" : classeBant(mBant)) +
     card("SDRs ativos", bySdr, "");

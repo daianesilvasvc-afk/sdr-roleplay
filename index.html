@@ -721,6 +721,7 @@ const CHECKLIST_SCRIPT = [
   { grupo: "Descoberta e dor", peso: 25, itens: [
     ["dor_espontanea",      "Dor verbalizada pelo lead sem o SDR sugerir o problema"],
     ["aprofundou",          "Ao menos duas perguntas de aprofundamento depois da primeira dor"],
+    ["quantificou_impacto",  "Pediu número ou valor para o impacto da dor: quanto perde, quanto custa, quantos clientes, quanto do mês depende disso. Teste mecânico: existe pergunta do SDR buscando quantidade? Aceitar o relato qualitativo (\"tá apertado\", \"corda bamba\", \"varia muito\") sem pedir número é false"],
     ["espelhou",            "Espelhou a dor com as palavras do lead e obteve confirmação explícita"],
   ]},
   { grupo: "Visão de futuro", peso: 15, itens: [
@@ -743,6 +744,7 @@ const CHECKLIST_SCRIPT = [
   ]},
   { grupo: "Solução e fechamento", peso: 20, itens: [
     ["citou_dor",           "Citou a dor confirmada antes de apresentar a consultoria"],
+    ["conectou_palavras",   "Ao apresentar a consultoria, retomou a dor usando as palavras que o LEAD usou. Traduzir para vocabulário de vendas (\"previsibilidade\", \"organizar o negócio\", \"escalar\") quando o lead disse outra coisa é false"],
     ["entregavel",          "Nomeou um entregável concreto da consultoria: diagnóstico do negócio, plano de ação, modelo de assinatura montado, estrutura de preço, plano de contratação. Teste mecânico: existe um substantivo que nomeia o que o lead sai com? Se a descrição é do tipo \"instruções do que você precisa fazer\", \"te ajudar a crescer\", \"entender sobre assinatura\", ou cita quem treinou o especialista, é false"],
     ["compromisso_antes",   "Pediu o compromisso de foco quando nenhum horário ainda tinha sido oferecido. Se algum horário já havia sido dito, marque false — mesmo que o SDR tenha pedido foco depois"],
     ["data_hora",           "Fechou data e horário específicos"],
@@ -792,9 +794,9 @@ function somarChecklist(marcado) {
 // Os 6 itens de Qualificacao nao entram aqui de proposito: eles alimentam o
 // BANT e o script, que e o Critério 5 da regua.
 const CRITERIO_ITENS = {
-  investigacao: ["dor_espontanea", "aprofundou", "espelhou"],
+  investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou"],
   sonho:        ["sonho_do_lead", "sonho_numero", "sonho_pessoal"],
-  solucao:      ["citou_dor", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
+  solucao:      ["citou_dor", "conectou_palavras", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
   agendamento:  ["compromisso_antes", "data_hora", "gratuito", "confirmacao_escrita", "recap",
                  "sem_escassez_falsa", "alinhou_expectativa", "combinou_whatsapp", "prova_social_final"],
 };
@@ -1197,12 +1199,12 @@ function renderScore(result) {
   // Os dois numeros lado a lado: media dos criterios (0-5) e script seguido (0-100%)
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem">' +
     '<div style="background:#161616;border-radius:10px;padding:1rem;text-align:center">' +
-      '<div style="font-size:12px;color:#888;margin-bottom:6px">Média dos critérios</div>' +
+      '<div style="font-size:12px;color:#888;margin-bottom:6px">Aderência ao roteiro</div>' +
       '<div style="font-size:38px;font-weight:500;line-height:1;color:' + corNota(av.media) + '">' + av.media +
       '<span style="font-size:18px;color:#555">/5</span></div>' +
     '</div>' +
     '<div style="background:#161616;border-radius:10px;padding:1rem;text-align:center">' +
-      '<div style="font-size:12px;color:#888;margin-bottom:6px">Script seguido</div>' +
+      '<div style="font-size:12px;color:#888;margin-bottom:6px">Etapas cumpridas</div>' +
       '<div style="font-size:38px;font-weight:500;line-height:1;color:' + corScript(av.scriptPct) + '">' + av.scriptPct +
       '<span style="font-size:18px;color:#555">%</span></div>' +
     '</div>' +
