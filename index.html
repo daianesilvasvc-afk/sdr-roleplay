@@ -744,8 +744,8 @@ const CHECKLIST_SCRIPT = [
   ]},
   { grupo: "Solução e fechamento", peso: 20, itens: [
     ["citou_dor",           "Citou a dor confirmada antes de apresentar a consultoria"],
-    ["conectou_palavras",   "Ao apresentar a consultoria, retomou a dor usando as palavras que o LEAD usou. Traduzir para vocabulário de vendas (\"previsibilidade\", \"organizar o negócio\", \"escalar\") quando o lead disse outra coisa é false"],
-    ["entregavel",          "Nomeou um entregável concreto da consultoria: diagnóstico do negócio, plano de ação, modelo de assinatura montado, estrutura de preço, plano de contratação. Teste mecânico: existe um substantivo que nomeia o que o lead sai com? Se a descrição é do tipo \"instruções do que você precisa fazer\", \"te ajudar a crescer\", \"entender sobre assinatura\", ou cita quem treinou o especialista, é false"],
+    ["conectou_palavras",   "TESTE DE REPETIÇÃO: localize a fala em que o lead descreveu a dor e a fala em que o SDR apresentou a consultoria. Existe alguma palavra de conteúdo do lead (substantivo ou verbo da dor, não artigo nem preposição) repetida literalmente pelo SDR na apresentação? Se o SDR usou só vocabulário próprio, ainda que com sentido equivalente, é false"],
+    ["entregavel",          "TESTE DE PALAVRA: a fala do SDR contém pelo menos um destes substantivos, ou sinônimo direto, nomeando o que o lead recebe — diagnóstico, plano, planejamento, estrutura, precificação, passo a passo, modelo montado, roteiro de implementação. Se nenhum aparece, é false, por mais que a fala pareça explicativa. Citar quem treinou o especialista não conta"],
     ["compromisso_antes",   "Pediu o compromisso de foco quando nenhum horário ainda tinha sido oferecido. Se algum horário já havia sido dito, marque false — mesmo que o SDR tenha pedido foco depois"],
     ["data_hora",           "Fechou data e horário específicos"],
     ["gratuito",            "Deixou claro que a consultoria é gratuita"],
