@@ -379,6 +379,27 @@ const OBJ_ROTEIRO =
   "(b) preço — pergunte quanto custa ou diga que está apertado. " +
   "Nunca levante objeção antes de o SDR apresentar a consultoria. ";
 
+// O lead nao entrega de graca o que o SDR nao pediu. Sem isso o nivel dificil
+// cobrava objecao mas nao cobrava profundidade: o Wagner topou agendar com o SDR
+// sem quantificar impacto nenhum e sem perguntar prazo.
+const PROFUNDIDADE = {
+  facil:
+    "PROFUNDIDADE: se o SDR pedir número para o impacto da dor, dê. Se não pedir, não ofereça — " +
+    "conte o problema em palavras, sem tamanho.",
+  medio:
+    "PROFUNDIDADE: o tamanho real do problema só sai se o SDR pedir número (quanto perde, quanto custa, " +
+    "quantos clientes). Sem isso, responda no qualitativo — \"varia\", \"tá apertado\", \"uns meses melhores\". " +
+    "Seu sonho e seus planos só saem se ele perguntar sobre futuro ou objetivo; não os antecipe. " +
+    "Se ele apresentar a consultoria sem retomar a dor que VOCÊ descreveu, responda morno e diga que quer pensar.",
+  dificil:
+    "PROFUNDIDADE: nunca revele o tamanho real do problema sem o SDR pedir número. Se ele aceitar o " +
+    "qualitativo e seguir, mantenha vago o resto da call. " +
+    "Seu sonho e seus planos de futuro só saem com pergunta direta sobre isso — se ele não perguntar, você não fala. " +
+    "SÓ aceite o agendamento se o SDR (a) tiver a dimensão do seu problema em número e (b) tiver retomado a sua " +
+    "dor com as suas palavras ao apresentar a consultoria. Faltando qualquer um dos dois, diga que vai pensar e " +
+    "peça para ele te mandar por mensagem — não recuse com grosseria, apenas não feche.",
+};
+
 const DIFF_RULES = {
   facil:   "Seja receptivo e demonstre interesse genuíno. " + OBJ_ROTEIRO +
            "Aceite o primeiro contorno razoável e siga para o agendamento.",
@@ -541,12 +562,19 @@ function buildSystem(p) {
   const objs = p.objecoes && p.objecoes.length
     ? "Suas objeções naturais (use no momento certo, nunca logo de cara): " + p.objecoes.join(" / ")
     : "Você não tem grandes objeções nesta sessão.";
+  // DIFF_RULES e PROFUNDIDADE existiam mas nunca eram lidos: o nivel escolhido na
+  // tela inicial nao chegava ao modelo, e a unica diferenca entre facil e dificil
+  // era o texto `comportamento` de cada persona.
+  const nivel = DIFF_RULES[p.difficulty] || DIFF_RULES.medio;
+  const prof  = PROFUNDIDADE[p.difficulty] || PROFUNDIDADE.medio;
   return (
     "Você é " + p.name + ", dono da " + p.shop + " em " + p.city + ", PR.\n" +
     "Contexto: " + p.contexto + "\n" +
     "Sua dor principal: " + p.dor + "\n" +
     "Perfil DISC: " + p.disc + " — " + p.comportamento + "\n" +
     objs + "\n\n" +
+    "NÍVEL DESTA SESSÃO (" + p.difficulty + "): " + nivel + "\n" +
+    prof + "\n\n" +
     "CONTEXTO IMPORTANTE:\n" +
     "- Você é um lead INBOUND — se cadastrou para receber uma consultoria GRATUITA sobre assinatura e o Cash Barber.\n" +
     "- Você já viu conteúdo do Rafa ou do Lincoln nas redes sociais e se interessou.\n" +
