@@ -128,14 +128,41 @@ const esc = s => String(s == null ? "" : s)
 
 const ETAPAS = ["investigacao", "sonho", "solucao", "agendamento"];
 
+// A nota de cada etapa e derivada do checklist do roteiro. Espelha o mapa do
+// index.html de proposito: o checklist salvo e a fonte de verdade, entao o painel
+// consegue mostrar a nota mesmo em registro gravado antes de ela ser persistida.
+const CRITERIO_ITENS = {
+  investigacao: ["dor_espontanea", "aprofundou", "espelhou"],
+  sonho:        ["sonho_do_lead", "sonho_numero", "sonho_pessoal"],
+  solucao:      ["citou_dor", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
+  agendamento:  ["compromisso_antes", "data_hora", "gratuito", "confirmacao_escrita", "recap",
+                 "sem_escassez_falsa", "alinhou_expectativa", "combinou_whatsapp", "prova_social_final"],
+};
+
+function derivaDoChecklist(r, etapa) {
+  const ck = r.criterios && r.criterios.script && r.criterios.script.checklist;
+  if (!ck) return null;
+  let aplicaveis = 0, feitos = 0;
+  for (const k of (CRITERIO_ITENS[etapa] || [])) {
+    const v = ck[k];
+    if (v === "NA" || v === "na" || v == null) continue;
+    aplicaveis++;
+    if (v === true) feitos++;
+  }
+  if (!aplicaveis) return "NA";
+  return Math.round(feitos / aplicaveis * 5 * 10) / 10;
+}
+
 // A nota por etapa vem dentro da avaliacao completa, nao em coluna propria.
 // "NA" (etapa nao alcancada) nao e zero e nao entra em media nenhuma.
 function notaEtapa(r, etapa) {
   const c = r.criterios && r.criterios.criterios && r.criterios.criterios[etapa];
-  if (!c) return null;
-  if (c.nota === "NA" || c.nota === "na") return "NA";
-  const n = Number(c.nota);
-  return Number.isFinite(n) ? n : null;
+  if (c) {
+    if (c.nota === "NA" || c.nota === "na") return "NA";
+    const n = Number(c.nota);
+    if (Number.isFinite(n)) return n;
+  }
+  return derivaDoChecklist(r, etapa);
 }
 function celulaEtapa(r, etapa) {
   const n = notaEtapa(r, etapa);

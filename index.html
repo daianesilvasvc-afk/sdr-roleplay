@@ -1141,6 +1141,11 @@ NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculad
       throw new Error("a avaliação não veio completa (faltou critério ou % de script). Nada foi salvo — refaça a simulação.");
     }
     result._av = av;
+    // Escreve as notas calculadas de volta na avaliacao antes de salvar: o modelo
+    // nao devolve mais nota, e sem isso o historico grava a avaliacao sem elas.
+    for (const [k] of CRITERIOS_V41) {
+      if (result.criterios[k]) result.criterios[k].nota = av.notas[k];
+    }
 
     renderScore(result); setStatus("Avaliação concluída!");
     saveSimulationResult(result, av, transcript);
