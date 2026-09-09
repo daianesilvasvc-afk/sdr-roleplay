@@ -387,17 +387,18 @@ const PROFUNDIDADE = {
     "PROFUNDIDADE: se o SDR pedir número para o impacto da dor, dê. Se não pedir, não ofereça — " +
     "conte o problema em palavras, sem tamanho.",
   medio:
-    "PROFUNDIDADE: o tamanho real do problema só sai se o SDR pedir número (quanto perde, quanto custa, " +
-    "quantos clientes). Sem isso, responda no qualitativo — \"varia\", \"tá apertado\", \"uns meses melhores\". " +
-    "Seu sonho e seus planos só saem se ele perguntar sobre futuro ou objetivo; não os antecipe. " +
-    "Se ele apresentar a consultoria sem retomar a dor que VOCÊ descreveu, responda morno e diga que quer pensar.",
+    "PROFUNDIDADE: você não fala o tamanho do prejuízo até alguém te perguntar em número. Antes disso você " +
+    "responde no vago — \"varia\", \"tá apertado\", \"uns meses melhores\". " +
+    "Você também não fala dos seus planos e do que quer pro futuro sem alguém puxar o assunto. " +
+    "Quando te oferecem uma reunião falando de coisa genérica, e não do problema que VOCÊ contou, você fica morno " +
+    "e diz que vai pensar.",
   dificil:
-    "PROFUNDIDADE: nunca revele o tamanho real do problema sem o SDR pedir número. Se ele aceitar o " +
-    "qualitativo e seguir, mantenha vago o resto da call. " +
-    "Seu sonho e seus planos de futuro só saem com pergunta direta sobre isso — se ele não perguntar, você não fala. " +
-    "SÓ aceite o agendamento se o SDR (a) tiver a dimensão do seu problema em número e (b) tiver retomado a sua " +
-    "dor com as suas palavras ao apresentar a consultoria. Faltando qualquer um dos dois, diga que vai pensar e " +
-    "peça para ele te mandar por mensagem — não recuse com grosseria, apenas não feche.",
+    "PROFUNDIDADE: você não fala o tamanho do prejuízo até alguém te perguntar em número, e se a pessoa não " +
+    "perguntar você fica vago o resto da conversa. " +
+    "Você também não fala dos seus planos e do que quer pro futuro sem alguém puxar o assunto. " +
+    "Você é do tipo que não fecha compromisso no escuro: enquanto você mesmo não tiver dito um número do que " +
+    "está perdendo, e enquanto não ouvir de volta o SEU problema com as SUAS palavras, você diz que vai pensar " +
+    "e pede pra receber por mensagem. Sem grosseria — você só não fecha.",
 };
 
 const DIFF_RULES = {
@@ -589,10 +590,33 @@ function buildSystem(p) {
     "- Só use objeções se o SDR empurrar produto sem ouvir ou pular etapas.\n" +
     "- Se o SDR qualificar bem, identificar sua dor e conectar à consultoria, aceite o agendamento naturalmente.\n" +
     "- Se o seu comportamento indicar que você é um lead DESQUALIFICADO (sem CNPJ ou sem R$300), NÃO aceite o agendamento mesmo que o SDR insista — mantenha sua limitação real.\n" +
-    "- Se o SDR ficar mais de 3 turnos sem te perguntar nada, fique impaciente."
+    "- Se o SDR ficar mais de 3 turnos sem te perguntar nada, fique impaciente.\n\n" +
+    "FORMATO DA SUA RESPOSTA — a regra mais importante de todas:\n" +
+    "Escreva APENAS as palavras que você fala no telefone, como se fossem transcritas da ligação.\n" +
+    "- Nada de narração: não descreva o que você está pensando, sentindo ou decidindo.\n" +
+    "- Nada de terceira pessoa: nunca escreva sobre \"o usuário\", \"o SDR\" ou \"o vendedor\".\n" +
+    "- Nada de avaliar o desempenho de quem te ligou. Isso não é papel seu.\n" +
+    "- Nada de separador (---), marcador, aspas envolvendo a fala, ou anotação entre colchetes.\n" +
+    "Se perceber que começou a explicar seu raciocínio, descarte e responda só com a frase falada."
   );
 }
 
+
+// Rede de seguranca: se o modelo vazar narracao, ela nao pode entrar no historico —
+// dali vai para a transcricao e contamina a avaliacao. Conservador de proposito:
+// so remove linha que claramente nao e fala, e se sobrar nada, devolve o original.
+const META_LINHA = /^\s*(?:---+|\*\*\*+|(?:\*|_)*(?:Silenciosamente|O usuário|O SDR|O vendedor|A lógica d|Observação:|Nota:)[^\n]*)\s*$/i;
+
+function limparFala(texto) {
+  const linhas = String(texto || "").split("\n");
+  const limpas = linhas.filter(l => !META_LINHA.test(l));
+  const saida = limpas.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (!saida) return String(texto || "").trim();
+  if (saida !== String(texto || "").trim()) {
+    console.warn("Persona vazou narração; linhas removidas:", linhas.length - limpas.length);
+  }
+  return saida;
+}
 
 // ── API ──
 async function callAPI(messages, system, opts) {
@@ -700,7 +724,7 @@ async function sendTurn(text) {
   history.push({ role: "user", content: text });
   addMsg("sdr", text); showTyping(); turnCount++;
   try {
-    const reply = await callAPI(history, buildSystem(persona));
+    const reply = limparFala(await callAPI(history, buildSystem(persona)));
     history.push({ role: "assistant", content: reply });
     hideTyping(); addMsg("barbeiro", reply);
     micBtn.classList.add("speaking-state"); micIcon.textContent = "🔊";
@@ -725,7 +749,7 @@ async function getGreeting() {
       [{ role: "user", content: "O telefone da sua barbearia está tocando. Atenda com uma frase curta e natural." }],
       buildSystem(persona) + "\n\nAtenda o telefone agora com 1 frase bem curta e natural."
     );
-    history.push({ role: "assistant", content: reply });
+    history.push({ role: "assistant", content: limparFala(reply) });
     hideTyping(); addMsg("barbeiro", reply);
     micBtn.classList.add("speaking-state"); micIcon.textContent = "🔊";
     setStatus(persona.name + " falando...", "speaking");
