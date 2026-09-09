@@ -597,25 +597,50 @@ function buildSystem(p) {
     "- Nada de terceira pessoa: nunca escreva sobre \"o usuário\", \"o SDR\" ou \"o vendedor\".\n" +
     "- Nada de avaliar o desempenho de quem te ligou. Isso não é papel seu.\n" +
     "- Nada de separador (---), marcador, aspas envolvendo a fala, ou anotação entre colchetes.\n" +
+    "- Nada de escrever a fala do SDR. Você responde só com a SUA fala, e espera a dele.\n" +
+    "- Escreva em português. Nunca em inglês.\n" +
+    "- Você NÃO sabe quanto custa o programa e nunca informa preço nem condição. Se quiser saber, PERGUNTE ao SDR. Nunca diga \"nossos planos\" nem fale em nome da empresa — a empresa é a dele, você é o cliente.\n" +
     "Se perceber que começou a explicar seu raciocínio, descarte e responda só com a frase falada."
   );
 }
 
 
-// Rede de seguranca: se o modelo vazar narracao, ela nao pode entrar no historico —
-// dali vai para a transcricao e contamina a avaliacao. Conservador de proposito:
-// so remove linha que claramente nao e fala, e se sobrar nada, devolve o original.
-const META_LINHA = /^\s*(?:---+|\*\*\*+|(?:\*|_)*(?:Silenciosamente|O usuário|O SDR|O vendedor|A lógica d|Observação:|Nota:)[^\n]*)\s*$/i;
+// Rede de seguranca contra vazamento de raciocinio na fala do barbeiro.
+// O gemini-2.5-flash chegou a emitir "**Thinking Process:** The SDR just presented..."
+// em ingles, citando as instrucoes do personagem e escrevendo a fala do SDR.
+// A correcao de origem e o thinkingBudget 0 no worker; isto aqui e a rede.
+const META_MARCADOR = /(\*\*\s*(?:thinking|análise|analise|racioc[íi]nio|reasoning)[^*]*\*\*|thinking process\s*:)/i;
+const META_LINHA = new RegExp(
+  "^\\s*(?:" +
+    "-{3,}|\\*{3,}|" +                                    // separadores
+    "\\*\\*[^*]+\\*\\*:?|" +                        // titulo em negrito
+    "(?:\\*|_)*(?:Silenciosamente|O usu[áa]rio|O SDR|O vendedor|A l[óo]gica d|Observa[çc][ãa]o:|Nota:|" +
+    "My character|My instruction|I need to|I already|The SDR|He (?:didn't|also|gave)|So,? I)[^\\n]*" +
+  ")\\s*$", "i");
 
+// Retorna "" quando so havia raciocinio — o chamador tenta de novo em vez de
+// exibir o vazamento. Nunca silencia o barbeiro por falso positivo: se nao havia
+// marcador de raciocinio, devolve o texto original.
 function limparFala(texto) {
-  const linhas = String(texto || "").split("\n");
-  const limpas = linhas.filter(l => !META_LINHA.test(l));
-  const saida = limpas.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-  if (!saida) return String(texto || "").trim();
-  if (saida !== String(texto || "").trim()) {
-    console.warn("Persona vazou narração; linhas removidas:", linhas.length - limpas.length);
+  const bruto = String(texto || "").trim();
+  if (!bruto) return "";
+  const temMarcador = META_MARCADOR.test(bruto);
+
+  let linhas = bruto.split("\n");
+  if (temMarcador) {
+    // A fala de verdade vem depois do bloco de raciocinio: corta no ultimo separador.
+    for (let i = linhas.length - 1; i >= 0; i--) {
+      if (/^\s*-{3,}\s*$/.test(linhas[i])) { linhas = linhas.slice(i + 1); break; }
+    }
   }
-  return saida;
+  // Duas formas de vazamento: linha que E so meta, e linha que COMECA com o
+  // marcador e emenda o raciocinio inteiro atras (foi o caso real).
+  const limpas = linhas.filter(l => !META_LINHA.test(l) && !META_MARCADOR.test(l.slice(0, 40)));
+  const saida = limpas.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+
+  if (saida && saida !== bruto) console.warn("Persona vazou raciocínio; linhas removidas:", linhas.length - limpas.length);
+  if (saida) return saida;
+  return temMarcador ? "" : bruto;   // sem marcador, o texto era fala de verdade
 }
 
 // ── API ──
@@ -724,7 +749,13 @@ async function sendTurn(text) {
   history.push({ role: "user", content: text });
   addMsg("sdr", text); showTyping(); turnCount++;
   try {
-    const reply = limparFala(await callAPI(history, buildSystem(persona)));
+    let reply = limparFala(await callAPI(history, buildSystem(persona)));
+    if (!reply) {
+      // A resposta inteira era raciocinio. Uma nova tentativa em vez de exibir o vazamento.
+      console.warn("Persona respondeu só com raciocínio; tentando de novo");
+      reply = limparFala(await callAPI(history, buildSystem(persona)));
+    }
+    if (!reply) reply = "Desculpa, o sinal caiu aqui. Pode repetir?";
     history.push({ role: "assistant", content: reply });
     hideTyping(); addMsg("barbeiro", reply);
     micBtn.classList.add("speaking-state"); micIcon.textContent = "🔊";
