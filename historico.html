@@ -43,6 +43,12 @@
   .score-mid { color: #f5c518; }
   .score-low { color: #f87171; }
 
+  #aviso-modelo {
+    margin-bottom: 1.25rem; padding: 0.85rem 1rem; border-radius: 10px;
+    background: #2a1f00; border: 0.5px solid #5a4a1a; color: #e8d9a8;
+    font-size: 13px; line-height: 1.6;
+  }
+  #aviso-modelo b { color: #f5c518; }
   #por-etapa { margin-bottom: 1.5rem; }
   .etapas-titulo { font-size: 13px; color: #888; margin-bottom: 8px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
   .etapas-pior { font-size: 12px; color: #f87171; }
@@ -72,6 +78,7 @@
   </div>
 
   <div class="summary-cards" id="summary"></div>
+  <div id="aviso-modelo" style="display:none"></div>
   <div id="por-etapa" style="display:none"></div>
 
   <div id="loading">Carregando...</div>
@@ -132,7 +139,7 @@ const ETAPAS = ["investigacao", "sonho", "solucao", "agendamento"];
 // index.html de proposito: o checklist salvo e a fonte de verdade, entao o painel
 // consegue mostrar a nota mesmo em registro gravado antes de ela ser persistida.
 const CRITERIO_ITENS = {
-  investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou"],
+  investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou", "confirmou_dor"],
   sonho:        ["sonho_do_lead", "sonho_numero", "sonho_pessoal"],
   solucao:      ["citou_dor", "conectou_palavras", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
   agendamento:  ["compromisso_antes", "data_hora", "gratuito", "confirmacao_escrita", "recap",
@@ -233,6 +240,20 @@ function render(rows) {
   // Onde o time trava: media de cada etapa no conjunto filtrado.
   const ROTULOS = { investigacao:"Investigação", sonho:"Sonho", solucao:"Solução", agendamento:"Agendamento" };
   const porEtapa = ETAPAS.map(e => ({ e, m: mediaEtapa(rows, e) })).filter(x => x.m !== null);
+  // Nota de modelos diferentes nao se compara. Sem este aviso o painel mostra um
+  // degrau que parece evolucao do time e e so troca de avaliador.
+  const modelos = [...new Set(rows.map(r => r.modelo_avaliador || "desconhecido"))];
+  const avisoEl = document.getElementById("aviso-modelo");
+  if (modelos.length > 1) {
+    avisoEl.innerHTML = "⚠️ Estas simulações foram pontuadas por avaliadores diferentes (" +
+      modelos.map(esc).join(", ") + "). As notas <b>não são comparáveis entre si</b> — " +
+      "medindo a mesma ligação, a troca de modelo mexeu mais de 1 ponto na aderência e 20 no script. " +
+      "Filtre por período ou compare só dentro do mesmo avaliador.";
+    avisoEl.style.display = "block";
+  } else {
+    avisoEl.style.display = "none";
+  }
+
   const etapasEl = document.getElementById("por-etapa");
   if (porEtapa.length) {
     // Empate e comum com poucas simulacoes — apontar so a primeira esconderia

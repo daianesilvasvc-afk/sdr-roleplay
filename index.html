@@ -660,7 +660,11 @@ async function callAPI(messages, system, opts) {
   });
   const data = await resp.json();
   if (data.error) throw new Error(data.error.message);
-  return data.content[0].text;
+  const texto = data.content[0].text;
+  // Quem pontua precisa registrar QUAL modelo pontuou: a nota nao e comparavel
+  // entre modelos. Medido na mesma transcricao, o 3.1-pro-preview deu +1.2 de
+  // aderencia e +20 pontos de script sobre o 2.5-pro.
+  return o.comMeta ? { texto, modelo: data.model || null } : texto;
 }
 
 // ── Reconhecimento de fala ──
@@ -805,7 +809,8 @@ const CHECKLIST_SCRIPT = [
     ["dor_espontanea",      "Dor verbalizada pelo lead sem o SDR sugerir o problema"],
     ["aprofundou",          "Ao menos duas perguntas de aprofundamento depois da primeira dor"],
     ["quantificou_impacto",  "Pediu número ou valor para o impacto da dor: quanto perde, quanto custa, quantos clientes, quanto do mês depende disso. Teste mecânico: existe pergunta do SDR buscando quantidade? Aceitar o relato qualitativo (\"tá apertado\", \"corda bamba\", \"varia muito\") sem pedir número é false"],
-    ["espelhou",            "Espelhou a dor com as palavras do lead e obteve confirmação explícita"],
+    ["espelhou",            "TESTE DE REPETIÇÃO: o SDR devolveu a dor usando alguma palavra de conteúdo que o próprio lead usou (substantivo ou verbo da dor). Resumir com vocabulário próprio, ainda que com sentido igual, é false"],
+    ["confirmou_dor",       "Depois de devolver a dor, o SDR PERGUNTOU se estava certo (\"é isso mesmo?\", \"é isso?\", \"entendi certo?\") e o lead respondeu confirmando. Devolver a dor e emendar na próxima pergunta sem esperar o aceite é false"],
   ]},
   { grupo: "Visão de futuro", peso: 15, itens: [
     ["sonho_do_lead",       "O lead descreveu o cenário dele em 12 meses — não o SDR por ele"],
@@ -877,7 +882,7 @@ function somarChecklist(marcado) {
 // Os 6 itens de Qualificacao nao entram aqui de proposito: eles alimentam o
 // BANT e o script, que e o Critério 5 da regua.
 const CRITERIO_ITENS = {
-  investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou"],
+  investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou", "confirmou_dor"],
   sonho:        ["sonho_do_lead", "sonho_numero", "sonho_pessoal"],
   solucao:      ["citou_dor", "conectou_palavras", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
   agendamento:  ["compromisso_antes", "data_hora", "gratuito", "confirmacao_escrita", "recap",
@@ -1185,7 +1190,9 @@ NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculad
 ` + transcript;
 
   try {
-    const raw = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { temperature: 0, task: "avaliacao", max_tokens: 16000 });
+    const resposta = await callAPI([{ role: "user", content: evalPrompt }], "Avaliador de SDRs. Responda apenas JSON válido e completo.", { temperature: 0, task: "avaliacao", max_tokens: 16000, comMeta: true });
+    const raw = resposta.texto;
+    const modeloAvaliador = resposta.modelo;
     let cleaned = raw.replace(/```json|```/g, "").trim();
 
     // Tenta parse direto
@@ -1233,7 +1240,7 @@ NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculad
     }
 
     renderScore(result); setStatus("Avaliação concluída!");
-    saveSimulationResult(result, av, transcript);
+    saveSimulationResult(result, av, transcript, modeloAvaliador);
   } catch(e) {
     setStatus("Erro ao avaliar: " + e.message);
     endBtn.removeAttribute("disabled"); sessionEnded = false;
@@ -1241,7 +1248,7 @@ NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculad
 });
 
 // ── Salva resultado no histórico central ──
-async function saveSimulationResult(result, av, transcript) {
+async function saveSimulationResult(result, av, transcript, modeloAvaliador) {
   try {
     const resp = await fetch(API_URL + "/save", {
       method: "POST",
@@ -1253,6 +1260,7 @@ async function saveSimulationResult(result, av, transcript) {
         persona_city: persona.city,
         level: persona.difficulty,
         rubrica_versao: "v4.1",
+        modelo_avaliador: modeloAvaliador || null,
         media_criterios: av.media,
         script_pct: av.scriptPct,
         bant_score: av.bantScore,
