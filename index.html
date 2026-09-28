@@ -805,46 +805,34 @@ async function getGreeting() {
 // codigo soma. A aritmetica livre do modelo espalhava 25 pontos na mesma call.
 // "NA" = item nao aplicavel (etapa que nao existiu na ligacao); sai do denominador.
 const CHECKLIST_SCRIPT = [
-  { grupo: "Descoberta e dor", peso: 25, itens: [
+  { grupo: "Descoberta e dor", peso: 30, itens: [
     ["dor_espontanea",      "Dor verbalizada pelo lead sem o SDR sugerir o problema"],
     ["aprofundou",          "Ao menos duas perguntas de aprofundamento depois da primeira dor"],
-    ["quantificou_impacto",  "Pediu número ou valor para o impacto da dor: quanto perde, quanto custa, quantos clientes, quanto do mês depende disso. Teste mecânico: existe pergunta do SDR buscando quantidade? Aceitar o relato qualitativo (\"tá apertado\", \"corda bamba\", \"varia muito\") sem pedir número é false"],
+    ["quantificou_impacto",  "Pediu o indicador principal em número — faturamento, nº de clientes ou volume. Teste mecânico: existe pergunta do SDR buscando quantidade? Aceitar só o relato qualitativo (\"varia\", \"tá apertado\") é false"],
     ["espelhou",            "TESTE DE REPETIÇÃO: o SDR devolveu a dor usando alguma palavra de conteúdo que o próprio lead usou (substantivo ou verbo da dor). Resumir com vocabulário próprio, ainda que com sentido igual, é false"],
-    ["confirmou_dor",       "Depois de devolver a dor, o SDR PERGUNTOU se estava certo (\"é isso mesmo?\", \"é isso?\", \"entendi certo?\") e o lead respondeu confirmando. Devolver a dor e emendar na próxima pergunta sem esperar o aceite é false"],
+    ["confirmou_dor",       "Depois de devolver a dor, o SDR PERGUNTOU se estava certo (\"é isso mesmo?\", \"é isso?\") e o lead respondeu confirmando. Emendar na próxima pergunta sem esperar o aceite é false"],
   ]},
-  { grupo: "Visão de futuro", peso: 15, itens: [
-    ["sonho_do_lead",       "O lead descreveu o cenário dele em 12 meses — não o SDR por ele"],
-    ["sonho_numero",        "Obteve um número: faturamento ou meta que o lead quer bater"],
-    ["sonho_pessoal",       "Explorou o impacto na vida pessoal (tempo, renda, sair da cadeira)"],
-  ]},
-  { grupo: "Qualificação", peso: 25, itens: [
+  { grupo: "Qualificação", peso: 20, itens: [
     ["cnpj",                "CNPJ ativo confirmado"],
     ["faturamento",         "Faturamento confirmado"],
     ["caixa",               "Caixa de R$300 validado — NA quando o faturamento é R$10k ou mais"],
     ["equipe",              "Estrutura e tamanho da equipe"],
-    ["decisor",             "Decisor: se a decisão é só do lead ou tem sócio envolvido"],
-    ["urgencia",            "Urgência com prazo — aceite por educação não conta"],
   ]},
   { grupo: "Objeções", peso: 10, itens: [
     ["objecao_validou",     "Validou a objeção antes de reposicionar"],
     ["objecao_contornou",   "Contornou com pergunta ou prova, sem recuar nem discursar"],
-    ["objecao_gratuidade",  "Em objeção de preço, deixou claro que a consultoria não tem custo"],
   ]},
-  { grupo: "Solução e fechamento", peso: 20, itens: [
+  { grupo: "Solução e fechamento", peso: 40, itens: [
     ["citou_dor",           "Citou a dor confirmada antes de apresentar a consultoria"],
-    ["conectou_palavras",   "TESTE DE REPETIÇÃO: localize a fala em que o lead descreveu a dor e a fala em que o SDR apresentou a consultoria. Existe alguma palavra de conteúdo do lead (substantivo ou verbo da dor, não artigo nem preposição) repetida literalmente pelo SDR na apresentação? Se o SDR usou só vocabulário próprio, ainda que com sentido equivalente, é false"],
-    ["entregavel",          "TESTE DE PALAVRA: a fala do SDR contém pelo menos um destes substantivos, ou sinônimo direto, nomeando o que o lead recebe — diagnóstico, plano, planejamento, estrutura, precificação, passo a passo, modelo montado, roteiro de implementação. Se nenhum aparece, é false, por mais que a fala pareça explicativa. Citar quem treinou o especialista não conta"],
+    ["conectou_palavras",   "TESTE DE REPETIÇÃO: ao apresentar a consultoria, alguma palavra de conteúdo que o LEAD usou para descrever a dor aparece repetida literalmente. Vocabulário próprio com sentido equivalente é false"],
+    ["entregavel",          "TESTE DE PALAVRA: a fala do SDR contém pelo menos um substantivo, ou sinônimo direto, nomeando o que o lead recebe — diagnóstico, plano, planejamento, estrutura, precificação, passo a passo, modelo montado. Se nenhum aparece, é false. Citar quem treinou o especialista não conta"],
+    ["respeitou_desqualificacao", "O desfecho da ligação bateu com a qualificação do lead: agendou lead apto, OU encerrou com respeito um lead sem CNPJ / sem os R$300 com faturamento abaixo de R$10k. Agendar quem não pode ser atendido é false, por melhor que tenha sido o resto"],
     ["compromisso_antes",   "Pediu o compromisso de foco quando nenhum horário ainda tinha sido oferecido. Se algum horário já havia sido dito, marque false — mesmo que o SDR tenha pedido foco depois"],
     ["data_hora",           "Fechou data e horário específicos"],
     ["gratuito",            "Deixou claro que a consultoria é gratuita"],
     ["confirmacao_escrita", "Pediu que o LEAD respondesse a confirmação por escrito, com prazo em minutos. Prometer enviar mensagem, link ou convite não conta — o pedido tem que ser de resposta do lead"],
     ["recap",               "Recapitulou data, hora e pauta antes de encerrar"],
     ["sem_escassez_falsa",  "Não inventou escassez de agenda"],
-  ]},
-  { grupo: "Pós-agendamento", peso: 5, itens: [
-    ["alinhou_expectativa", "Alinhou duração, formato e postura esperada"],
-    ["combinou_whatsapp",   "Combinou o envio no WhatsApp"],
-    ["prova_social_final",  "Mandou prova social para aquecer até a reunião"],
   ]},
 ];
 
@@ -883,10 +871,9 @@ function somarChecklist(marcado) {
 // BANT e o script, que e o Critério 5 da regua.
 const CRITERIO_ITENS = {
   investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou", "confirmou_dor"],
-  sonho:        ["sonho_do_lead", "sonho_numero", "sonho_pessoal"],
-  solucao:      ["citou_dor", "conectou_palavras", "entregavel", "objecao_validou", "objecao_contornou", "objecao_gratuidade"],
-  agendamento:  ["compromisso_antes", "data_hora", "gratuito", "confirmacao_escrita", "recap",
-                 "sem_escassez_falsa", "alinhou_expectativa", "combinou_whatsapp", "prova_social_final"],
+  solucao:      ["citou_dor", "conectou_palavras", "entregavel", "objecao_validou", "objecao_contornou"],
+  agendamento:  ["respeitou_desqualificacao", "compromisso_antes", "data_hora", "gratuito",
+                 "confirmacao_escrita", "recap", "sem_escassez_falsa"],
 };
 
 // Nota 0-5 a partir da fracao de itens cumpridos. Item "NA" sai do denominador;
@@ -906,9 +893,8 @@ function notaDoCriterio(marcado, criterio) {
 
 const CRITERIOS_V41 = [
   ["investigacao", "1 — Investigação: clareza da dor"],
-  ["sonho",        "2 — Descoberta do sonho"],
-  ["solucao",      "3 — Solução: interesse na dor real"],
-  ["agendamento",  "4 — Agendamento: escassez e valor"]
+  ["solucao",      "2 — Solução: interesse na dor real"],
+  ["agendamento",  "3 — Agendamento e desfecho"]
 ];
 
 // Le as notas da avaliacao. Retorna null se ela nao for utilizavel — meia avaliacao nao vira nota.
@@ -928,12 +914,24 @@ function lerAvaliacao(result) {
   const notas = {}, detalhe = {}, pontuadas = [];
   for (const [k] of CRITERIOS_V41) {
     const d = notaDoCriterio(marcado, k);
+    // Agendar um lead que nao pode ser atendido zera o Agendamento por melhor que
+    // tenha sido a mecanica do fechamento: antes disso, agendar desqualificado
+    // pontuava MAIS que encerrar corretamente (2.9/59% contra 0.7-2.4/22-48%).
+    if (k === "agendamento" && marcado.respeitou_desqualificacao === false && d.nota !== "NA") {
+      d.nota = 0;
+      d.zeradoPorDesqualificacao = true;
+    }
     notas[k] = d.nota;
     detalhe[k] = d;
     if (d.nota !== "NA") pontuadas.push(d.nota);
   }
   if (!pontuadas.length) return null;  // tudo NA: nao ha o que pontuar
-  const PILARES_BANT = ["budget", "authority", "need", "timeline"];
+  // Authority e Timeline saem da conta: o roteiro que o time usa nao tem etapa
+  // que mande perguntar decisor nem prazo, entao cobrar esses pilares era punir
+  // o SDR por nao fazer algo que ninguem ensinou — `urgencia` deu 0 em 19
+  // ligacoes seguidas. Voltam quando o roteiro ganhar essas perguntas.
+  const PILARES_BANT = ["budget", "need"];
+  const PILARES_FORA = ["authority", "timeline"];
 
   // BANT: piso deterministico do checklist, nuance so para baixo.
   //
@@ -946,9 +944,7 @@ function lerAvaliacao(result) {
   const BASE_BANT = {
     budget:    () => marcado.caixa === false ? "DESQUALIFICADO"
                    : marcado.faturamento === true ? "CONFIRMADO" : "NÃO MAPEADO",
-    authority: () => marcado.decisor === true ? "CONFIRMADO" : "NÃO MAPEADO",
     need:      () => marcado.dor_espontanea === true ? "CONFIRMADO" : "NÃO MAPEADO",
-    timeline:  () => marcado.urgencia === true ? "CONFIRMADO" : "NÃO MAPEADO",
   };
   const b = result.bant || (result.bant = {});
   for (const k of PILARES_BANT) {
@@ -966,14 +962,21 @@ function lerAvaliacao(result) {
 
   // BANT contado a partir dos status, nao do campo "score" do modelo —
   // mesmo motivo do score geral: o numero que ele reporta divergiu da propria regra.
+  for (const k of PILARES_FORA) {
+    const p = b[k] || (b[k] = {});
+    p.status = "FORA DO ROTEIRO";
+    p.foraDoRoteiro = true;
+  }
   const bantScore = PILARES_BANT
     .filter(k => /^CONFIRMADO/i.test(b[k].status || "")).length;
+  const bantTotal = PILARES_BANT.length;
   return {
     notas,
     media: Math.round(pontuadas.reduce((a, b) => a + b, 0) / pontuadas.length * 10) / 10,
     detalhe,
     scriptPct: soma.pct,
     scriptGrupos: soma.grupos,
+    bantTotal,
     bantScore
   };
 }
@@ -1097,6 +1100,10 @@ Marque cada item abaixo com true, false ou "NA". NÃO calcule percentual nenhum:
 - "NA" = a etapa não existiu nesta ligação e isso não é falha do SDR. Exemplos: o lead nunca objetou; o faturamento é R$10k ou mais, então o caixa de R$300 não se aplica; a ligação foi legitimamente desqualificada no CNPJ e as etapas seguintes deixaram de existir.
 Em dúvida entre true e false, marque false. "NA" é só para etapa inexistente — nunca para etapa que o SDR simplesmente deixou de fazer.
 
+REGRA DA DESQUALIFICAÇÃO (leia antes de marcar o fechamento):
+Se o lead era desqualificado (sem CNPJ, ou faturamento abaixo de R$10k sem os R$300) e o SDR encerrou a ligação corretamente em vez de agendar, então NÃO existiu etapa de fechamento — e isso é ACERTO, não falha. Nesse caso marque "NA" em compromisso_antes, data_hora, confirmacao_escrita e recap, e marque respeitou_desqualificacao como true. Marcar esses itens como false pune o SDR por ter feito a coisa certa.
+Se o SDR agendou um lead desqualificado, marque respeitou_desqualificacao como false e avalie os demais itens de fechamento normalmente.
+
 ` + checklistTexto + `
 
 ## 7. CRITÉRIOS
@@ -1144,21 +1151,12 @@ Penalizar escassez FABRICADA (inventar cancelamento de outro cliente, vaga que n
 NÃO penalizar: confirmar logística e expectativa da reunião depois do aceite, combinar o WhatsApp, ou enviar prova social — isso é execução correta de pós-agendamento e conta a favor, não contra.
 Se NÃO agendou por falha do SDR, aplique a REGRA 5 e preencha o bloco ponto_perda.
 
-CRITÉRIO 5 — QUALIFICAÇÃO BANT
-Regras anti-leniência:
-- CONFIRMADO exige trecho explícito e voluntário do lead
-- Resposta a pergunta fechada = PARCIAL, nunca CONFIRMADO
-- Informação implícita no contexto = NÃO MAPEADO
-- SDR não investigou o pilar = NÃO MAPEADO
-- Resistência não contornada = sinal negativo para Timeline e Need
-B — BUDGET: faturamento mensal; se < 10k, caixa validado? CONFIRMADO exige faturamento declarado + caixa validado se < 10k.
-A — AUTHORITY: é o decisor? Há outro envolvido? "Sou o dono" sem autonomia demonstrada = PARCIAL.
-REGRA DURA: só CONFIRMADO se o SDR perguntou explicitamente sobre decisão/sócio. Ser dono não implica autonomia — não infira do contexto.
-N — NEED: problema concreto, espontâneo e reconhecido? Dor induzida = PARCIAL no máximo.
-T — TIMELINE: urgência com prazo? Aceite com entusiasmo ou resistência?
-REGRA DURA: só marque CONFIRMADO se houver trecho em que o SDR PERGUNTOU sobre prazo/urgência E o lead respondeu com um prazo. Se o SDR nunca perguntou, o pilar é NÃO MAPEADO — não importa o quanto o lead pareceu interessado. Aceitar o agendamento não é urgência; resistir ao primeiro horário oferecido é sinal contrário. Não infira urgência do tom do lead.
-COMO O STATUS É DECIDIDO: o status base de cada pilar é calculado fora daqui, a partir do checklist da seção 6 — faturamento e caixa para Budget, decisor para Authority, dor espontânea para Need, urgência para Timeline. Você NÃO precisa marcar CONFIRMADO nem NÃO MAPEADO: será ignorado.
-A única coisa que você decide aqui: se o SDR investigou o pilar mas a resposta do lead não fechou (vaga, evasiva, contraditória), marque o status como PARCIAL e OBRIGATORIAMENTE inclua o trecho que prova isso. PARCIAL sem trecho é descartado. Não devolva score — ele é contado dos status.
+CRITÉRIO 5 — QUALIFICAÇÃO BANT (só Budget e Need)
+Authority e Timeline estão FORA do escopo: o roteiro que este time usa não tem etapa que mande perguntar decisor nem prazo, então não se cobra.
+B — BUDGET: faturamento mensal; se < 10k, caixa validado?
+N — NEED: problema concreto, espontâneo e reconhecido? Dor induzida vale menos.
+COMO O STATUS É DECIDIDO: o status base é calculado fora daqui, a partir do checklist da seção 6 — faturamento e caixa para Budget, dor espontânea para Need. Você NÃO precisa marcar CONFIRMADO nem NÃO MAPEADO: será ignorado.
+A única coisa que você decide: se o SDR investigou o pilar mas a resposta do lead não fechou (vaga, evasiva, contraditória), marque PARCIAL e OBRIGATORIAMENTE inclua o trecho que prova. PARCIAL sem trecho é descartado. Não devolva score.
 
 ## 8. CONTEXTO DESTE ROLEPLAY
 ` + gabarito + `
@@ -1336,6 +1334,8 @@ function renderScore(result) {
         ' — <span style="color:' + col + '">' + (n === "NA" ? "NA" : n + "/5") + '</span>' +
         (av.detalhe[k] && av.detalhe[k].aplicaveis
           ? '<span style="color:#666;font-weight:400"> · ' + av.detalhe[k].feitos + '/' + av.detalhe[k].aplicaveis + ' itens</span>' : '') +
+        (av.detalhe[k] && av.detalhe[k].zeradoPorDesqualificacao
+          ? '<span style="color:#f87171;font-weight:400"> · zerado: agendou lead desqualificado</span>' : '') +
         '</div>' +
       '<div style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:8px">' + esc(c.feedback) + '</div>';
 
@@ -1362,13 +1362,13 @@ function renderScore(result) {
 
   // BANT
   const bant = result.bant || {};
-  const PILARES = [["budget","B — Budget"],["authority","A — Authority"],["need","N — Need"],["timeline","T — Timeline"]];
+  const PILARES = [["budget","B — Budget"],["need","N — Need"],["authority","A — Authority"],["timeline","T — Timeline"]];
   const corStatus = s => /^CONFIRMADO/i.test(s || "") ? "#5cb85c"
     : /^PARCIAL/i.test(s || "") ? "#f5c518"
     : /^DESQUALIFICADO/i.test(s || "") ? "#f87171" : "#777";
   html += '<div class="fb-block" style="margin-top:1.25rem;padding:1rem;background:#161616;border-radius:10px">' +
     '<h4 style="margin-bottom:10px">🔢 Qualificação BANT' +
-    (av.bantScore === null ? "" : ' — <span style="color:' + (av.bantScore >= 3 ? "#5cb85c" : av.bantScore >= 2 ? "#f5c518" : "#f87171") + '">' + av.bantScore + '/4</span>') +
+    (av.bantScore === null ? "" : ' — <span style="color:' + (av.bantScore >= (av.bantTotal || 2) ? "#5cb85c" : av.bantScore >= 1 ? "#f5c518" : "#f87171") + '">' + av.bantScore + '/' + (av.bantTotal || 2) + '</span>') +
     '</h4>';
   for (const [k, label] of PILARES) {
     const p = bant[k] || {};
