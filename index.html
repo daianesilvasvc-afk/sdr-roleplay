@@ -805,34 +805,48 @@ async function getGreeting() {
 // codigo soma. A aritmetica livre do modelo espalhava 25 pontos na mesma call.
 // "NA" = item nao aplicavel (etapa que nao existiu na ligacao); sai do denominador.
 const CHECKLIST_SCRIPT = [
-  { grupo: "Descoberta e dor", peso: 30, itens: [
-    ["dor_espontanea",      "Dor verbalizada pelo lead sem o SDR sugerir o problema"],
-    ["aprofundou",          "Ao menos duas perguntas de aprofundamento depois da primeira dor"],
-    ["quantificou_impacto",  "Pediu o indicador principal em número — faturamento, nº de clientes ou volume. Teste mecânico: existe pergunta do SDR buscando quantidade? Aceitar só o relato qualitativo (\"varia\", \"tá apertado\") é false"],
-    ["espelhou",            "TESTE DE REPETIÇÃO: o SDR devolveu a dor usando alguma palavra de conteúdo que o próprio lead usou (substantivo ou verbo da dor). Resumir com vocabulário próprio, ainda que com sentido igual, é false"],
-    ["confirmou_dor",       "Depois de devolver a dor, o SDR PERGUNTOU se estava certo (\"é isso mesmo?\", \"é isso?\") e o lead respondeu confirmando. Emendar na próxima pergunta sem esperar o aceite é false"],
+  { grupo: "1. Abertura com energia", peso: 10, chave: "abertura", itens: [
+    ["ab_identificou",   "Disse o próprio nome e que é da Podium Educação"],
+    ["ab_motivo",        "Explicou POR QUE está ligando: o Rafa selecionou um grupo de donos de barbearia e pediu que a equipe trouxesse um direcionamento"],
+    ["ab_permissao",     "Perguntou se o lead consegue falar agora"],
+    ["ab_sem_desculpa",  "NÃO pediu desculpa por incomodar nem usou tom de quem está atrapalhando. Qualquer \"desculpa incomodar\", \"só um minutinho\", \"será que eu posso tomar seu tempo\" é false"],
   ]},
-  { grupo: "Qualificação", peso: 20, itens: [
-    ["cnpj",                "CNPJ ativo confirmado"],
-    ["faturamento",         "Faturamento confirmado"],
-    ["caixa",               "Caixa de R$300 validado — NA quando o faturamento é R$10k ou mais"],
-    ["equipe",              "Estrutura e tamanho da equipe"],
+  { grupo: "2. Validar o negócio", peso: 15, chave: "validar", itens: [
+    ["val_formato",      "Perguntou se toca sozinho ou tem equipe, e quantas cadeiras"],
+    ["val_atendimento",  "Perguntou como é o atendimento: agendamento, sistema ou ordem de chegada"],
+    ["val_cnpj",         "Perguntou se tem CNPJ ou MEI"],
+    ["val_faturamento",  "Perguntou quanto a barbearia fatura por mês"],
   ]},
-  { grupo: "Objeções", peso: 10, itens: [
-    ["objecao_validou",     "Validou a objeção antes de reposicionar"],
-    ["objecao_contornou",   "Contornou com pergunta ou prova, sem recuar nem discursar"],
+  { grupo: "3. Mapear e acolher", peso: 10, chave: "mapear", itens: [
+    ["map_perguntou",    "Perguntou onde o lead sente que precisa de apoio ou o que gostaria de melhorar"],
+    ["map_acolheu",      "Acolheu o que o lead trouxe (\"faz total sentido\", \"você tá carregando muita coisa sozinho\") e remeteu o assunto à consultoria"],
+    ["map_sem_implicacao", "NÃO fez nenhuma pergunta de implicação. São proibidas: \"quanto você perde com isso?\", \"o que acontece se continuar assim?\", \"como seria se...?\", \"qual o impacto disso?\", e qualquer variação que peça o lead a dimensionar a dor. A dor fica para a consultoria"],
   ]},
-  { grupo: "Solução e fechamento", peso: 40, itens: [
-    ["citou_dor",           "Citou a dor confirmada antes de apresentar a consultoria"],
-    ["conectou_palavras",   "TESTE DE REPETIÇÃO: ao apresentar a consultoria, alguma palavra de conteúdo que o LEAD usou para descrever a dor aparece repetida literalmente. Vocabulário próprio com sentido equivalente é false"],
-    ["entregavel",          "TESTE DE PALAVRA: a fala do SDR contém pelo menos um substantivo, ou sinônimo direto, nomeando o que o lead recebe — diagnóstico, plano, planejamento, estrutura, precificação, passo a passo, modelo montado. Se nenhum aparece, é false. Citar quem treinou o especialista não conta"],
-    ["respeitou_desqualificacao", "O desfecho da ligação bateu com a qualificação do lead: agendou lead apto, OU encerrou com respeito um lead sem CNPJ / sem os R$300 com faturamento abaixo de R$10k. Agendar quem não pode ser atendido é false, por melhor que tenha sido o resto"],
-    ["compromisso_antes",   "Pediu o compromisso de foco quando nenhum horário ainda tinha sido oferecido. Se algum horário já havia sido dito, marque false — mesmo que o SDR tenha pedido foco depois"],
-    ["data_hora",           "Fechou data e horário específicos"],
-    ["gratuito",            "Deixou claro que a consultoria é gratuita"],
-    ["confirmacao_escrita", "Pediu que o LEAD respondesse a confirmação por escrito, com prazo em minutos. Prometer enviar mensagem, link ou convite não conta — o pedido tem que ser de resposta do lead"],
-    ["recap",               "Recapitulou data, hora e pauta antes de encerrar"],
-    ["sem_escassez_falsa",  "Não inventou escassez de agenda"],
+  { grupo: "4. Vender a consultoria", peso: 25, chave: "consultoria", itens: [
+    ["con_passo_a_passo", "Descreveu o que acontece na consultoria: uma hora, olhar os números e a operação, encontrar os gaps"],
+    ["con_exclusividade", "Deixou claro que é focada só no negócio dele e que sai um plano de ação exclusivo para a barbearia dele"],
+    ["con_sem_custo",    "Disse explicitamente que não tem custo nenhum"],
+    ["con_ganhos",       "Citou ao menos um ganho concreto: gestão mais completa, faturar mais sem trabalhar o dobro, ser empresário do próprio negócio, contratar com qualidade"],
+    ["con_conectou",     "Amarrou a consultoria ao que o LEAD falou no passo 3 (\"aquilo que você falou de...\"). Pitch genérico, igual para qualquer lead, é false"],
+    ["con_sem_proibida", "NÃO usou \"apresentação\", \"demonstração\" nem \"te mostrar o sistema\", e NÃO falou de preço, de sistema nem do App Barber. Esses assuntos ficam para a consultoria"],
+  ]},
+  { grupo: "5. Objeções com acolhimento", peso: 10, chave: "objecoes", itens: [
+    ["obj_acolheu",      "Acolheu a objeção antes de qualquer argumento (\"entendo total, a rotina é puxada mesmo\")"],
+    ["obj_voltou_valor", "Depois de acolher, voltou ao valor — é só uma hora, sem custo, sai com um plano pronto — e pediu o agendamento de novo"],
+    ["obj_nao_recuou",   "NÃO recuou na primeira objeção e NÃO entrou em discussão ou rebate"],
+  ]},
+  { grupo: "6. Próximo passo", peso: 10, chave: "proximo", itens: [
+    ["prox_ofereceu",    "Ofereceu horário para agora ou para hoje, em vez de perguntar \"quando fica bom pra você?\" em aberto"],
+    ["prox_d0_d1_d2",    "O agendamento ficou em D0, D1 ou no máximo D2. Mais longe que isso só vale se o SDR tentou puxar para perto antes (agenda que não abriu, exceção depois das 18h) — se aceitou a data distante de primeira, é false"],
+    ["prox_recap",       "Recapitulou o dia e a hora no fecho"],
+    ["prox_whatsapp",    "Combinou a confirmação por WhatsApp"],
+    ["prox_respeitou_cnpj", "O desfecho bateu com a qualificação: agendou lead com CNPJ ou MEI, OU encerrou com respeito um lead sem CNPJ nenhum. Agendar quem não tem CNPJ é false, por melhor que tenha sido o resto"],
+  ]},
+  { grupo: "7. Compromisso firmado", peso: 20, chave: "compromisso", itens: [
+    ["com_reservou",     "Disse que está reservando uma hora da própria agenda para ele"],
+    ["com_pediu",        "Pediu o compromisso de volta: vir com a cabeça organizada, sem cliente na cadeira, focado no objetivo"],
+    ["com_perguntou",    "Fez a pergunta de compromisso em voz alta: \"posso contar com você?\" ou \"posso reservar esse horário?\""],
+    ["com_sim_explicito", "O lead respondeu com um SIM claro. \"Tá, combinado\", \"beleza\" ou silêncio contam como compromisso fraco e são false"],
   ]},
 ];
 
@@ -862,22 +876,18 @@ function somarChecklist(marcado) {
 }
 
 // ── Avaliação ──
-// Régua v4.1 (NEPQ + BANT): 4 critérios de 0 a 5 + score de script 0-100%.
-// Cada criterio deriva dos itens do checklist, nao de nota livre do modelo.
-// Foi o que estabilizou o score geral, o BANT e o % de script: as tres metricas
-// que sairam do julgamento livre foram a amplitude ~0, e a nota 0-5 que ficou
-// como opiniao era a que mais oscilava (1,3 de amplitude em 6 rodadas).
-// Os 6 itens de Qualificacao nao entram aqui de proposito: eles alimentam o
-// BANT e o script, que e o Critério 5 da regua.
-const CRITERIO_ITENS = {
-  investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou", "confirmou_dor"],
-  solucao:      ["citou_dor", "conectou_palavras", "entregavel", "objecao_validou", "objecao_contornou"],
-  agendamento:  ["respeitou_desqualificacao", "compromisso_antes", "data_hora", "gratuito",
-                 "confirmacao_escrita", "recap", "sem_escassez_falsa"],
-};
+// Régua do Script de Ligação 3C: as 7 etapas que a gestão cobra ao vivo,
+// com os pesos dela. Cada etapa vira um critério de 0 a 5.
+// Os criterios SAO as etapas do script: mesma divisao, mesmos pesos que a
+// gestao cobra ao vivo. Antes eram duas estruturas paralelas que precisavam ser
+// mantidas em sincronia na mao — e divergiram.
+const CRITERIOS = CHECKLIST_SCRIPT.map(g => [g.chave, g.grupo]);
+const CRITERIO_ITENS = Object.fromEntries(
+  CHECKLIST_SCRIPT.map(g => [g.chave, g.itens.map(([k]) => k)])
+);
 
 // Nota 0-5 a partir da fracao de itens cumpridos. Item "NA" sai do denominador;
-// criterio sem nenhum item aplicavel vira "NA" e fica fora da media.
+// etapa sem nenhum item aplicavel vira "NA" e fica fora da media.
 function notaDoCriterio(marcado, criterio) {
   const chaves = CRITERIO_ITENS[criterio] || [];
   let aplicaveis = 0, feitos = 0;
@@ -891,93 +901,44 @@ function notaDoCriterio(marcado, criterio) {
   return { nota: Math.round(feitos / aplicaveis * 5 * 10) / 10, feitos, aplicaveis };
 }
 
-const CRITERIOS_V41 = [
-  ["investigacao", "1 — Investigação: clareza da dor"],
-  ["solucao",      "2 — Solução: interesse na dor real"],
-  ["agendamento",  "3 — Agendamento e desfecho"]
-];
-
-// Le as notas da avaliacao. Retorna null se ela nao for utilizavel — meia avaliacao nao vira nota.
-// "NA" (etapa nao alcancada) entra no relatorio mas fica FORA da media: nao e zero.
 function lerAvaliacao(result) {
   const crit = result && result.criterios;
   if (!crit) return null;
-  for (const [k] of CRITERIOS_V41) if (!crit[k]) return null;  // exige o feedback das 4 etapas
+  for (const [k] of CRITERIOS) if (!crit[k]) return null;  // exige o feedback das 7 etapas
 
   // O percentual do script e somado do checklist, nunca lido do modelo.
   const marcado = (result.script && result.script.checklist) || {};
   const soma = somarChecklist(marcado);
   if (!soma) return null;
 
-  // As notas 0-5 tambem vem do checklist. O campo "nota" que o modelo
-  // eventualmente devolva e ignorado.
   const notas = {}, detalhe = {}, pontuadas = [];
-  for (const [k] of CRITERIOS_V41) {
+  for (const [k] of CRITERIOS) {
     const d = notaDoCriterio(marcado, k);
-    // Agendar um lead que nao pode ser atendido zera o Agendamento por melhor que
-    // tenha sido a mecanica do fechamento: antes disso, agendar desqualificado
-    // pontuava MAIS que encerrar corretamente (2.9/59% contra 0.7-2.4/22-48%).
-    if (k === "agendamento" && marcado.respeitou_desqualificacao === false && d.nota !== "NA") {
+
+    // Teto da implicacao: a gestao cobra que a dor fique para a consultoria, e
+    // UMA pergunta de implicacao ja limita a etapa a 2.
+    if (k === "mapear" && marcado.map_sem_implicacao === false && d.nota !== "NA" && d.nota > 2) {
+      d.nota = 2;
+      d.tetoPorImplicacao = true;
+    }
+    // Agendar lead sem CNPJ zera o proximo passo, por melhor que tenha sido o resto.
+    if (k === "proximo" && marcado.prox_respeitou_cnpj === false && d.nota !== "NA") {
       d.nota = 0;
       d.zeradoPorDesqualificacao = true;
     }
+
     notas[k] = d.nota;
     detalhe[k] = d;
     if (d.nota !== "NA") pontuadas.push(d.nota);
   }
-  if (!pontuadas.length) return null;  // tudo NA: nao ha o que pontuar
-  // Authority e Timeline saem da conta: o roteiro que o time usa nao tem etapa
-  // que mande perguntar decisor nem prazo, entao cobrar esses pilares era punir
-  // o SDR por nao fazer algo que ninguem ensinou — `urgencia` deu 0 em 19
-  // ligacoes seguidas. Voltam quando o roteiro ganhar essas perguntas.
-  const PILARES_BANT = ["budget", "need"];
-  const PILARES_FORA = ["authority", "timeline"];
+  if (!pontuadas.length) return null;
 
-  // BANT: piso deterministico do checklist, nuance so para baixo.
-  //
-  // O status base de cada pilar vem do item que prova que o SDR investigou —
-  // sem isso o modelo confirmava Timeline em ligacao onde ninguem perguntou
-  // prazo, e o painel dizia "altamente qualificado" para um lead nao sondado.
-  // O modelo ainda pode rebaixar um CONFIRMADO para PARCIAL (o SDR perguntou
-  // mas a resposta foi vaga), e SO isso: nunca promover, nunca derrubar para
-  // NAO MAPEADO, e apenas com trecho que justifique. Sem trecho, o piso vale.
-  const BASE_BANT = {
-    budget:    () => marcado.caixa === false ? "DESQUALIFICADO"
-                   : marcado.faturamento === true ? "CONFIRMADO" : "NÃO MAPEADO",
-    need:      () => marcado.dor_espontanea === true ? "CONFIRMADO" : "NÃO MAPEADO",
-  };
-  const b = result.bant || (result.bant = {});
-  for (const k of PILARES_BANT) {
-    const p = b[k] || (b[k] = {});
-    const base = BASE_BANT[k]();
-    const querParcial = /^PARCIAL/i.test(p.status || "");
-    if (base === "CONFIRMADO" && querParcial && p.trecho) {
-      p.status = "PARCIAL";
-      p.rebaixadoPeloModelo = true;
-    } else {
-      if (p.status && p.status !== base) p.statusDescartado = p.status;
-      p.status = base;
-    }
-  }
-
-  // BANT contado a partir dos status, nao do campo "score" do modelo —
-  // mesmo motivo do score geral: o numero que ele reporta divergiu da propria regra.
-  for (const k of PILARES_FORA) {
-    const p = b[k] || (b[k] = {});
-    p.status = "FORA DO ROTEIRO";
-    p.foraDoRoteiro = true;
-  }
-  const bantScore = PILARES_BANT
-    .filter(k => /^CONFIRMADO/i.test(b[k].status || "")).length;
-  const bantTotal = PILARES_BANT.length;
   return {
     notas,
-    media: Math.round(pontuadas.reduce((a, b) => a + b, 0) / pontuadas.length * 10) / 10,
     detalhe,
+    media: Math.round(pontuadas.reduce((a, b) => a + b, 0) / pontuadas.length * 10) / 10,
     scriptPct: soma.pct,
     scriptGrupos: soma.grupos,
-    bantTotal,
-    bantScore
   };
 }
 
@@ -1013,7 +974,7 @@ endBtn.addEventListener("click", async () => {
 
   const evalPrompt =
 `# AGENTE DE ANÁLISE DE LIGAÇÕES — PRÉ-VENDAS PODIUM
-## MÉTODO NEPQ + BANT — v4.1 (ROLEPLAY)
+## SCRIPT DE LIGAÇÃO 3C — VENDER A CONSULTORIA (ROLEPLAY)
 
 ## 1. IDENTIDADE E MISSÃO
 Você é um analista especialista em pré-vendas treinado no método NEPQ.
@@ -1031,10 +992,11 @@ O SDR recebe o feedback como se viesse do líder direto dele.
 
 ## 3. REGRAS GLOBAIS INVIOLÁVEIS
 
-REGRA 1 — ESPONTANEIDADE DA DOR
-Sempre deixe claro o que o lead disse de forma ESPONTÂNEA versus o que foi INDUZIDO pelo SDR. Dores induzidas reduzem a validade do critério, reduzem a nota da investigação e reduzem a temperatura do lead.
-- Resposta a pergunta fechada ("você tem problema com X?") = induzida
-- Verbalização sem provocação direta, ou após pergunta aberta = espontânea
+REGRA 1 — NADA DE IMPLICAÇÃO (a regra mais cobrada)
+Este script NÃO investiga dor. O SDR mapeia e acolhe; a dor fica para a consultoria.
+São PROIBIDAS: "quanto você perde com isso?", "o que acontece se continuar assim?", "como seria se...?", "qual o impacto disso no seu mês?", e qualquer variação que peça o lead a dimensionar o problema.
+Perguntar onde ele precisa de apoio e o que gostaria de melhorar é CERTO e esperado. O que não pode é cobrar dele o tamanho da dor.
+Quando identificar uma pergunta de implicação, cite-a literal no campo implicacao_detectada.
 
 REGRA 2 — LINHA LÓGICA
 Todos os critérios devem estar conectados ao MESMO problema principal identificado na ligação. Se a dor principal muda entre os critérios, isso é inconsistência — indique explicitamente no feedback.
@@ -1054,15 +1016,12 @@ Monitore ativamente se o SDR fala demais. Prolixidade esfria o lead e sinaliza f
 - Preenche silêncio do lead com mais conteúdo em vez de escuta
 - Abertura passa de 2 turnos sem engajar o lead
 Quando identificar, registre o turno, o que foi dito em excesso, o impacto real e — em UMA frase — o que deveria ter sido dito no lugar.
-NÃO É PROLIXIDADE (nunca marque como prolixidade e nunca desconte no score do script):
-- Falar depois do agendamento confirmado para alinhar logística, duração, formato e expectativa da reunião. O objetivo da call é AGENDAR, não vender — agendamento confirmado não encerra o trabalho do SDR, e é o pós-confirmação que reduz no-show.
-- Combinar envio de mensagem no WhatsApp, link ou convite.
-- Mandar prova social (caso de outro cliente, conteúdo relevante) para aquecer o lead até a reunião.
-Os sinais acima valem para as etapas de descoberta e fechamento. Depois do "sim" do lead, só marque prolixidade se o SDR reabriu negociação, introduziu informação nova que gera objeção, ou divagou sem propósito nenhum.
+NÃO É PROLIXIDADE: vender a consultoria com passo a passo, exclusividade, ganhos e sem custo (etapa 4 é o maior peso do script, tem que ser desenvolvida), nem reforçar o compromisso no fecho (etapa 7).
+A prolixidade entra só no feedback, sem peso na nota.
 
 REGRA 5 — PONTO DE PERDA DO AGENDAMENTO
 Se a ligação NÃO gerou agendamento por falha do SDR (não por desqualificação legítima: sem CNPJ, sem caixa, negativa clara), identifique o momento exato da perda.
-Conta como falha do SDR: não fez a oferta de forma clara; recuou na primeira objeção sem contra-argumento; não criou urgência ou valor antes de oferecer horário; deixou em aberto sem fechar data e hora; aceitou "vou pensar" sem qualificar o que falta decidir; apresentou a solução cedo demais; lead esfriou por prolixidade.
+Conta como falha do SDR: não ofereceu horário para agora ou hoje; aceitou data distante sem tentar puxar para perto; recuou na primeira objeção em vez de acolher e voltar ao valor; não fez a pergunta de compromisso; aceitou um "tá, combinado" vago como se fosse sim; falou de preço, sistema ou App Barber e esfriou o lead.
 
 REGRA 6 — VOZ DO LÍDER
 Todo feedback dos Critérios 1 a 4 é escrito em segunda pessoa. Estrutura de cada etapa:
@@ -1106,57 +1065,18 @@ Se o SDR agendou um lead desqualificado, marque respeitou_desqualificacao como f
 
 ` + checklistTexto + `
 
-## 7. CRITÉRIOS
+## 7. AS SETE ETAPAS DO SCRIPT
+Estas são as etapas que a gestão cobra ao vivo, com o peso de cada uma. Use-as para escrever o feedback no tom certo — a nota em si é calculada fora daqui, a partir do checklist.
 
-CRITÉRIO 1 — INVESTIGAÇÃO: CRIOU CLAREZA DA DOR
-O SDR identificou uma dor real e relevante da barbearia e aprofundou nela com perguntas investigativas?
-5 = Dor clara + desdobramento + dor ESPONTÂNEA após pergunta aberta
-4 = Dor clara + desdobramento, mas dor parcialmente induzida
-3 = Identificou mas NÃO aprofundou, ou aprofundou dor totalmente induzida
-2 = Perguntas genéricas, aceitou resposta superficial
-1 = Uma única pergunta sem desdobramento
-0 = Ausência total de investigação
-Penalizar: SDR sugere o problema antes de perguntar; lead responde "sim" sem elaborar e SDR segue em frente; SDR aceita a primeira resposta sem desdobrar; perguntas fechadas em sequência.
+1. ABERTURA COM ENERGIA (10%) — voz segura, sem pedir desculpa por ligar. Envolver o lead nos primeiros 30 segundos e explicar o motivo do contato: o Rafa selecionou um grupo de donos de barbearia.
+2. VALIDAR O NEGÓCIO (15%) — quatro dados obrigatórios: formato (sozinho/equipe/cadeiras), atendimento (agendamento/sistema/ordem de chegada), CNPJ ou MEI, faturamento. Em tom de conversa, não de formulário. Cada item que falta tira ponto.
+3. MAPEAR E ACOLHER (10%) — perguntar onde ele precisa de apoio e ACOLHER o que vier. REGRA CRÍTICA: nada de implicação. "Quanto você perde com isso?", "o que acontece se continuar assim?", "como seria se...?" são PROIBIDAS — a dor fica para a consultoria. Uma única pergunta dessas já limita a etapa a 2.
+4. VENDER A CONSULTORIA (25%) — o maior peso junto com o compromisso. Uma hora, focada só no negócio dele, olhando números e operação, achando os gaps, saindo com um plano de ação exclusivo, sem custo nenhum, e com os ganhos nomeados. Tem que amarrar no que ele disse na etapa 3. Nunca dizer "apresentação", "demonstração" ou "te mostrar o sistema"; preço, sistema e App Barber ficam para a consultoria.
+5. OBJEÇÕES COM ACOLHIMENTO (10%) — a fórmula é acolher e voltar ao valor. Não rebater, não discutir, não recuar na primeira objeção.
+6. PRÓXIMO PASSO (10%) — oferecer agora ou hoje. D0, D1 ou no máximo D2. Se o lead empurrar para longe, puxar de volta (a agenda daquele dia ainda não abriu, ou abrir exceção depois das 18h) antes de aceitar. Recapitular dia e hora e confirmar por WhatsApp.
+7. COMPROMISSO FIRMADO (20%) — reservar a hora da própria agenda, pedir o compromisso de volta (cabeça organizada, sem cliente na cadeira) e fazer a pergunta em voz alta: "posso contar com você?". Esperar um SIM claro — "tá, combinado" é compromisso fraco.
 
-CRITÉRIO 2 — DESCOBERTA DO SONHO (GAP DOR → DESEJO)
-O SDR entendeu o cenário ideal que o lead quer construir e o impacto da resolução em 6-12 meses (negócio E vida pessoal)?
-5 = Sonho identificado + impacto na barbearia E na vida pessoal
-4 = Sonho identificado + aprofundou, mas só na barbearia
-3 = Perguntou mas não aprofundou; aceitou "crescer" sem desdobrar
-2 = Pergunta genérica, resposta rasa, zero desdobramento
-1 = Mencionou de passagem
-0 = Ausência total
-Penalizar: aceitar "quero crescer"/"pretendo" sem aprofundar; não conectar o sonho à dor do Critério 1; SDR descrever o sonho NO LUGAR do lead; não explorar vida pessoal (tempo, renda, liberdade).
-
-CRITÉRIO 3 — SOLUÇÃO: DESPERTOU INTERESSE ATENDENDO A DOR REAL
-O SDR conectou um entregável específico diretamente à dor expressa pelo lead? O lead precisa sentir "isso resolve exatamente o que estou passando".
-5 = Entregável claro + conexão direta à dor + gancho forte para a consultoria com o especialista
-4 = Entregável + conexão à dor, mas gancho fraco ou genérico
-3 = Entregável sem conexão à dor; pitch padrão
-2 = Tentou vender a consultoria sem explicar entregável
-1 = Produto mencionado de forma vaga
-0 = Ausência total
-Penalizar: apresentou o produto sem retomar a dor antes; mesmo pitch independente do problema identificado; gancho limitado a "você vai conversar com um especialista".
-
-CRITÉRIO 4 — AGENDAMENTO: ESCASSEZ E VALOR DA REUNIÃO
-O SDR vendeu a reunião com autoridade, personalização baseada nas dores e escassez real?
-5 = Reunião conectada às dores + proposta de valor personalizada + urgência genuína + escassez de horários
-4 = Conectou à dor + alguma urgência, mas escassez superficial
-3 = Ofereceu horários sem conectar às dores; agendamento mecânico
-2 = Lista de horários sem valor nem personalização
-1 = Tentou agendar de forma confusa, sem fechar
-0 = Não chegou à etapa
-Penalizar: horários sem personalização com base nas dores; sem urgência ou escassez real; frases genéricas; lead frio no aceite e SDR não percebeu; resistência não contornada com argumento técnico.
-Penalizar escassez FABRICADA (inventar cancelamento de outro cliente, vaga que não existe): funciona no curto prazo e custa confiança.
-NÃO penalizar: confirmar logística e expectativa da reunião depois do aceite, combinar o WhatsApp, ou enviar prova social — isso é execução correta de pós-agendamento e conta a favor, não contra.
-Se NÃO agendou por falha do SDR, aplique a REGRA 5 e preencha o bloco ponto_perda.
-
-CRITÉRIO 5 — QUALIFICAÇÃO BANT (só Budget e Need)
-Authority e Timeline estão FORA do escopo: o roteiro que este time usa não tem etapa que mande perguntar decisor nem prazo, então não se cobra.
-B — BUDGET: faturamento mensal; se < 10k, caixa validado?
-N — NEED: problema concreto, espontâneo e reconhecido? Dor induzida vale menos.
-COMO O STATUS É DECIDIDO: o status base é calculado fora daqui, a partir do checklist da seção 6 — faturamento e caixa para Budget, dor espontânea para Need. Você NÃO precisa marcar CONFIRMADO nem NÃO MAPEADO: será ignorado.
-A única coisa que você decide: se o SDR investigou o pilar mas a resposta do lead não fechou (vaga, evasiva, contraditória), marque PARCIAL e OBRIGATORIAMENTE inclua o trecho que prova. PARCIAL sem trecho é descartado. Não devolva score.
+AS TRÊS COISAS QUE MAIS PESAM PARA NOTA MÁXIMA: a consultoria vendida com passo a passo, exclusividade, sem custo e ganhos; o "posso contar com você?" respondido com sim explícito; e os quatro dados do negócio validados.
 
 ## 8. CONTEXTO DESTE ROLEPLAY
 ` + gabarito + `
@@ -1174,13 +1094,15 @@ Responda SOMENTE o JSON abaixo, sem markdown e sem texto fora dele. O objeto "ch
 NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculadas fora daqui, a partir das suas marcações no checklist. A escala da seção 5 e as âncoras da seção 7 continuam valendo como referência para você escrever o feedback no tom certo — não para atribuir número. Toda "nota" é um número de 0 a 5 ou a string "NA". Todo "trecho" é citação literal de no máximo 30 palavras, prefixada por 🟢 SDR ou 🟣 CLIENTE e por "⏱ turno #N"; use "" quando não houver trecho.
 {"sintese":"uma frase do líder sobre a ligação inteira",
 "criterios":{
-"investigacao":{"feedback":"voz do líder: o que fez certo (se houver) / o que errou + turno + impacto / análise de espontaneidade","trecho_dor":"","trecho_desdobramento":"","dores":["dor 1"],"espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa","proximo":"Na próxima: [frase exata que deveria ter usado]"},
-"sonho":{"feedback":"voz do líder","trecho":"","sonhos":["sonho 1"],"proximo":"Na próxima: [frase exata]"},
-"solucao":{"feedback":"voz do líder","trecho_dor":"","trecho_entregavel":"","proximo":"Na próxima: [frase exata]"},
-"agendamento":{"feedback":"voz do líder","trecho_oferta":"","proximo":"Na próxima: [frase exata]"}},
+"abertura":{"feedback":"voz do líder: o que fez certo (se houver) / o que errou + turno + impacto","trecho":"","proximo":"Na próxima: [frase exata que deveria ter usado]"},
+"validar":{"feedback":"","trecho":"","proximo":"","dados_faltantes":["dado"]},
+"mapear":{"feedback":"","trecho":"","proximo":"","implicacao_detectada":"a pergunta de implicação que ele fez, literal, ou vazio se não houve"},
+"consultoria":{"feedback":"","trecho":"","proximo":""},
+"objecoes":{"feedback":"","trecho":"","proximo":""},
+"proximo":{"feedback":"","trecho":"","proximo":"","distancia_agendamento":"D0, D1, D2, D3+ ou NA"},
+"compromisso":{"feedback":"","trecho":"","proximo":""}},
 "prolixidade":{"detectada":false,"turno":"","observacao":"o que foi dito em excesso e o impacto","deveria_ter_dito":"uma frase"},
 "ponto_perda":{"houve":false,"turno":"","o_que_aconteceu":"1-2 frases","trecho":"","causa_raiz":"a falha técnica específica","o_que_fazer":"uma ação concreta em segunda pessoa"},
-"bant":{"budget":{"status":"CONFIRMADO ou PARCIAL ou NÃO MAPEADO ou DESQUALIFICADO","trecho":""},"authority":{"status":"","trecho":""},"need":{"status":"","trecho":"","espontaneidade":"ESPONTÂNEA ou INDUZIDA + justificativa"},"timeline":{"status":"","trecho":""}},
 "script":{"checklist":{"nome_do_item":true},"observacao":"1-2 frases sobre o que mais custou aderência ao roteiro"},
 "resumo_lider":"3 a 5 frases: padrão identificado, onde é forte, onde é fraco, e UM foco único e mensurável para a próxima ligação. Termine sempre com o foco."}
 
@@ -1233,7 +1155,7 @@ NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculad
     result._av = av;
     // Escreve as notas calculadas de volta na avaliacao antes de salvar: o modelo
     // nao devolve mais nota, e sem isso o historico grava a avaliacao sem elas.
-    for (const [k] of CRITERIOS_V41) {
+    for (const [k] of CRITERIOS) {
       if (result.criterios[k]) result.criterios[k].nota = av.notas[k];
     }
 
@@ -1261,7 +1183,6 @@ async function saveSimulationResult(result, av, transcript, modeloAvaliador) {
         modelo_avaliador: modeloAvaliador || null,
         media_criterios: av.media,
         script_pct: av.scriptPct,
-        bant_score: av.bantScore,
         avaliacao: result,
         resumo_lider: result.resumo_lider || "",
         veredicto: result.sintese || "",
@@ -1301,7 +1222,7 @@ function renderScore(result) {
 
   // Barras por criterio
   html += '<div class="criteria" style="margin-bottom:1.5rem;">';
-  for (const [k, label] of CRITERIOS_V41) {
+  for (const [k, label] of CRITERIOS) {
     const n = av.notas[k];
     const col = corNota(n);
     const larg = n === "NA" ? 0 : n * 20;
@@ -1325,7 +1246,7 @@ function renderScore(result) {
 
   // Feedback por criterio
   html += '<div class="fb-block"><h4 style="margin-bottom:12px">📋 Feedback por etapa</h4></div>';
-  for (const [k, label] of CRITERIOS_V41) {
+  for (const [k, label] of CRITERIOS) {
     const c = crit[k] || {};
     const n = av.notas[k];
     const col = corNota(n);
@@ -1335,56 +1256,27 @@ function renderScore(result) {
         (av.detalhe[k] && av.detalhe[k].aplicaveis
           ? '<span style="color:#666;font-weight:400"> · ' + av.detalhe[k].feitos + '/' + av.detalhe[k].aplicaveis + ' itens</span>' : '') +
         (av.detalhe[k] && av.detalhe[k].zeradoPorDesqualificacao
-          ? '<span style="color:#f87171;font-weight:400"> · zerado: agendou lead desqualificado</span>' : '') +
+          ? '<span style="color:#f87171;font-weight:400"> · zerado: agendou lead sem CNPJ</span>' : '') +
+        (av.detalhe[k] && av.detalhe[k].tetoPorImplicacao
+          ? '<span style="color:#f87171;font-weight:400"> · teto 2: fez pergunta de implicação</span>' : '') +
         '</div>' +
       '<div style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:8px">' + esc(c.feedback) + '</div>';
 
-    if (k === "investigacao") {
-      html += trechoHtml("💬 Dor:", c.trecho_dor);
-      html += trechoHtml("💬 Desdobramento:", c.trecho_desdobramento);
-      if (c.espontaneidade) html += '<div style="font-size:12px;color:#a78bfa;margin:6px 0">🔍 ' + esc(c.espontaneidade) + '</div>';
-      if (c.dores && c.dores.length) html += '<div style="font-size:12px;color:#888;margin:6px 0">Dores identificadas: ' + esc(c.dores.join(", ")) + '</div>';
+    html += trechoHtml("💬", c.trecho);
+    if (k === "validar" && c.dados_faltantes && c.dados_faltantes.length) {
+      html += '<div style="font-size:12px;color:#f87171;margin:6px 0">Não validou: ' + esc(c.dados_faltantes.join(", ")) + '</div>';
     }
-    if (k === "sonho") {
-      html += trechoHtml("💬 Sonho:", c.trecho);
-      if (c.sonhos && c.sonhos.length) html += '<div style="font-size:12px;color:#888;margin:6px 0">Sonhos identificados: ' + esc(c.sonhos.join(", ")) + '</div>';
+    if (k === "mapear" && c.implicacao_detectada) {
+      html += '<div style="font-size:12px;color:#f87171;margin:6px 0">🚫 Pergunta de implicação: "' + esc(c.implicacao_detectada) + '"</div>';
     }
-    if (k === "solucao") {
-      html += trechoHtml("💬 Retomada da dor:", c.trecho_dor);
-      html += trechoHtml("💬 Entregável:", c.trecho_entregavel);
-    }
-    if (k === "agendamento") {
-      html += trechoHtml("💬 Oferta da reunião:", c.trecho_oferta);
+    if (k === "proximo" && c.distancia_agendamento) {
+      const d = String(c.distancia_agendamento);
+      const ok = /^D[012]$|^NA$/i.test(d.trim());
+      html += '<div style="font-size:12px;color:' + (ok ? "#5cb85c" : "#f87171") + ';margin:6px 0">📅 Agendamento: ' + esc(d) + '</div>';
     }
     if (c.proximo) html += '<div style="font-size:13px;color:#5cb85c;margin-top:6px">🛠 ' + esc(c.proximo) + '</div>';
     html += '</div>';
   }
-
-  // BANT
-  const bant = result.bant || {};
-  const PILARES = [["budget","B — Budget"],["need","N — Need"],["authority","A — Authority"],["timeline","T — Timeline"]];
-  const corStatus = s => /^CONFIRMADO/i.test(s || "") ? "#5cb85c"
-    : /^PARCIAL/i.test(s || "") ? "#f5c518"
-    : /^DESQUALIFICADO/i.test(s || "") ? "#f87171" : "#777";
-  html += '<div class="fb-block" style="margin-top:1.25rem;padding:1rem;background:#161616;border-radius:10px">' +
-    '<h4 style="margin-bottom:10px">🔢 Qualificação BANT' +
-    (av.bantScore === null ? "" : ' — <span style="color:' + (av.bantScore >= (av.bantTotal || 2) ? "#5cb85c" : av.bantScore >= 1 ? "#f5c518" : "#f87171") + '">' + av.bantScore + '/' + (av.bantTotal || 2) + '</span>') +
-    '</h4>';
-  for (const [k, label] of PILARES) {
-    const p = bant[k] || {};
-    html += '<div style="margin-bottom:8px">' +
-      '<span style="font-size:12px;color:#ccc">' + label + ': </span>' +
-      '<span style="font-size:12px;font-weight:500;color:' + corStatus(p.status) + '">' + esc(p.status || "NÃO MAPEADO") + '</span>' +
-      (p.rebaixadoPeloModelo
-        ? '<span style="font-size:11px;color:#f5c518;margin-left:6px">o SDR perguntou, mas a resposta não fechou</span>'
-        : p.statusDescartado
-          ? '<span style="font-size:11px;color:#666;margin-left:6px">derivado do checklist</span>'
-          : '');
-    if (p.trecho) html += trechoHtml("", p.trecho);
-    if (k === "need" && p.espontaneidade) html += '<div style="font-size:12px;color:#a78bfa;margin:4px 0">🔍 ' + esc(p.espontaneidade) + '</div>';
-    html += '</div>';
-  }
-  html += '</div>';
 
   // Script seguido — o checklist inteiro, para o SDR ver exatamente o que faltou
   const scr = result.script || {};

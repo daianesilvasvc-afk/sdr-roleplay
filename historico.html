@@ -91,12 +91,15 @@
           <th>SDR</th>
           <th>Persona</th>
           <th>Nível</th>
-          <th title="Investigação: clareza da dor">Inv.</th>
-          <th title="Solução: interesse na dor real">Sol.</th>
-          <th title="Agendamento: escassez e valor">Agend.</th>
+          <th title="1. Abertura com energia">Abert.</th>
+          <th title="2. Validar o negócio">Valid.</th>
+          <th title="3. Mapear e acolher">Mapear</th>
+          <th title="4. Vender a consultoria">Consult.</th>
+          <th title="5. Objeções">Objeç.</th>
+          <th title="6. Próximo passo">Próx.</th>
+          <th title="7. Compromisso firmado">Compr.</th>
           <th title="Aderência ao roteiro: fração das etapas cumpridas, não qualidade de execução">Aderência</th>
           <th>Script</th>
-          <th>BANT</th>
           <th>Síntese do líder</th>
         </tr>
       </thead>
@@ -134,16 +137,24 @@ function media(rows, campo) {
 const esc = s => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const ETAPAS = ["investigacao", "solucao", "agendamento"];
+// As etapas do Script de Ligação 3C, na ordem e com os pesos que a gestão cobra.
+const ETAPAS = ["abertura", "validar", "mapear", "consultoria", "objecoes", "proximo", "compromisso"];
+const ETAPA_ROTULO = {
+  abertura: "Abertura", validar: "Validar", mapear: "Mapear", consultoria: "Consultoria",
+  objecoes: "Objeções", proximo: "Próximo passo", compromisso: "Compromisso",
+};
 
 // A nota de cada etapa e derivada do checklist do roteiro. Espelha o mapa do
 // index.html de proposito: o checklist salvo e a fonte de verdade, entao o painel
 // consegue mostrar a nota mesmo em registro gravado antes de ela ser persistida.
 const CRITERIO_ITENS = {
-  investigacao: ["dor_espontanea", "aprofundou", "quantificou_impacto", "espelhou", "confirmou_dor"],
-  solucao:      ["citou_dor", "conectou_palavras", "entregavel", "objecao_validou", "objecao_contornou"],
-  agendamento:  ["respeitou_desqualificacao", "compromisso_antes", "data_hora", "gratuito",
-                 "confirmacao_escrita", "recap", "sem_escassez_falsa"],
+  abertura:    ["ab_identificou", "ab_motivo", "ab_permissao", "ab_sem_desculpa"],
+  validar:     ["val_formato", "val_atendimento", "val_cnpj", "val_faturamento"],
+  mapear:      ["map_perguntou", "map_acolheu", "map_sem_implicacao"],
+  consultoria: ["con_passo_a_passo", "con_exclusividade", "con_sem_custo", "con_ganhos", "con_conectou", "con_sem_proibida"],
+  objecoes:    ["obj_acolheu", "obj_voltou_valor", "obj_nao_recuou"],
+  proximo:     ["prox_ofereceu", "prox_d0_d1_d2", "prox_recap", "prox_whatsapp", "prox_respeitou_cnpj"],
+  compromisso: ["com_reservou", "com_pediu", "com_perguntou", "com_sim_explicito"],
 };
 
 function derivaDoChecklist(r, etapa) {
@@ -226,7 +237,6 @@ function render(rows) {
   }
   const mCrit = media(rows, "media_criterios");
   const mScript = media(rows, "script_pct");
-  const mBant = media(rows, "bant_score");
   const bySdr = new Set(rows.map(r => r.sdr_name)).size;
   const card = (lbl, val, cls) =>
     `<div class="sum-card"><div class="lbl">${lbl}</div><div class="val ${cls}">${val}</div></div>`;
@@ -234,11 +244,10 @@ function render(rows) {
     card("Simulações", rows.length, "") +
     card("Aderência média", mCrit === null ? "—" : mCrit.toFixed(1) + "/5", mCrit === null ? "" : classeCriterios(mCrit)) +
     card("Script médio", mScript === null ? "—" : Math.round(mScript) + "%", mScript === null ? "" : classeScript(mScript)) +
-    card("BANT médio", mBant === null ? "—" : mBant.toFixed(1) + "/2", mBant === null ? "" : classeBant(mBant)) +
     card("SDRs ativos", bySdr, "");
 
   // Onde o time trava: media de cada etapa no conjunto filtrado.
-  const ROTULOS = { investigacao:"Investigação", solucao:"Solução", agendamento:"Agendamento" };
+  const ROTULOS = ETAPA_ROTULO;
   const porEtapa = ETAPAS.map(e => ({ e, m: mediaEtapa(rows, e) })).filter(x => x.m !== null);
   // Nota de modelos diferentes nao se compara. Sem este aviso o painel mostra um
   // degrau que parece evolucao do time e e so troca de avaliador.
@@ -288,7 +297,6 @@ function render(rows) {
       ${ETAPAS.map(e => celulaEtapa(r, e)).join("")}
       <td class="score ${typeof r.media_criterios === "number" ? classeCriterios(r.media_criterios) : ""}">${typeof r.media_criterios === "number" ? r.media_criterios.toFixed(1) + "/5" : "—"}</td>
       <td class="score ${typeof r.script_pct === "number" ? classeScript(r.script_pct) : ""}">${typeof r.script_pct === "number" ? r.script_pct + "%" : "—"}</td>
-      <td class="score ${typeof r.bant_score === "number" ? classeBant(r.bant_score) : ""}">${typeof r.bant_score === "number" ? r.bant_score + "/2" : "—"}</td>
       <td class="veredicto">${esc(r.veredicto)}</td>
     </tr>
   `).join("");
