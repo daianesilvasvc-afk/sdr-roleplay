@@ -315,12 +315,12 @@ const PERSONAS = {
     },
     {
       name:"Marcos Vinicius", initials:"MV", city:"Almirante Tamandaré", shop:"MV Cuts",
-      desc:"Fatura baixo, precisa validar se tem R$300 · Perfil S",
+      desc:"Fatura baixo e caixa apertado, mas tem MEI · Perfil S",
       disc:"S",
       contexto:"Trabalha sozinho. Fatura R$6k/mês. CNPJ ativo. Se cadastrou depois de ver depoimento de cliente Cash Barber. Muito interessado mas financeiramente apertado.",
       dor:"Sem recorrência, depende de indicação, mês muito irregular.",
       objecoes:["Tô num momento difícil financeiramente","Quanto custa mesmo?"],
-      comportamento:"Calmo e honesto. Quando o SDR validar caixa mínimo, diga que está muito apertado e não tem R$300 agora. Se o SDR comunicar com respeito que não está qualificado, tentar entender se há outra forma de viabilizar e encerrar com cordialidade, aceite bem e agradeça. Se o SDR pressionar ou insistir em agendar mesmo assim, fique desconfortável. Perfil S: cauteloso, sensível à pressão."
+      comportamento:"Calmo e honesto. Se perguntarem do CNPJ, confirme que tem MEI. Sempre que o assunto chegar perto de dinheiro, diga que o caixa está muito apertado e que não tem como assumir custo novo agora — é a sua objeção principal. Se o SDR acolher isso e deixar claro que a consultoria não tem custo nenhum, você relaxa e aceita. Se ele falar de preço, de plano ou de sistema, você trava. Perfil S: cauteloso, sensível à pressão."
     },
   ],
   dificil: [
@@ -340,7 +340,7 @@ const PERSONAS = {
       contexto:"Trabalha sozinho. Fatura R$5.5k/mês. CNPJ ativo. Viu o Rafa mas não acredita que o modelo funciona para barbearia pequena como a dele. Se cadastrou por curiosidade.",
       dor:"Clientela instável, sem recorrência, fatura abaixo de R$10k.",
       objecoes:["Isso é pra barbearia grande né?","Quanto custa?","Tenho poucos clientes, vai funcionar?"],
-      comportamento:"Resistente e pragmático. Quando o SDR validar caixa, confirme que não tem R$300 disponível — tudo está no negócio. Se o SDR explicar claramente que sem esse investimento mínimo não consegue aproveitar a consultoria, tentar entender se há alternativa e encerrar com respeito, aceite com racionalidade. Se o SDR tentar empurrar mesmo assim, questione o motivo. Perfil C: racional, precisa de lógica para aceitar o não."
+      comportamento:"Resistente e pragmático. Se perguntarem do CNPJ, confirme que tem. Pergunte quanto custa logo que ouvir falar em consultoria — tudo o que você tem está no negócio e você não assume custo novo sem saber o valor. Se o SDR acolher e deixar claro que não tem custo, você segue, mas quer entender o que ganha em troca da hora. Se ele desconversar sobre o custo, você insiste. Perfil C: racional, precisa de lógica."
     },
     {
       name:"Márcio Lima", initials:"ML", city:"Piraquara", shop:"Márcio's Cuts",
@@ -374,31 +374,45 @@ const DIFF_META = {
 // acontecer, senao o SDR nunca treina contorno. Sempre DEPOIS do SDR apresentar
 // a consultoria: objecao antes disso e fora de sequencia e nao treina nada.
 const OBJ_ROTEIRO =
-  "Depois que o SDR apresentar a consultoria, levante ao menos UMA destas duas objeções, com as suas palavras: " +
-  "(a) você já tem outra solução — sistema, mentoria ou método que já usa; " +
-  "(b) preço — pergunte quanto custa ou diga que está apertado. " +
-  "Nunca levante objeção antes de o SDR apresentar a consultoria. ";
+  "Depois que o SDR propuser a consultoria, levante ao menos UMA destas duas objeções, com as suas palavras: " +
+  "(a) falta de tempo — a rotina é puxada, 12 horas por dia na cadeira; " +
+  "(b) desconfiança do custo — pergunte quanto custa ou diga que está apertado. " +
+  "Nunca levante objeção antes de o SDR propor a consultoria. ";
 
-// O lead nao entrega de graca o que o SDR nao pediu. Sem isso o nivel dificil
-// cobrava objecao mas nao cobrava profundidade: o Wagner topou agendar com o SDR
-// sem quantificar impacto nenhum e sem perguntar prazo.
-const PROFUNDIDADE = {
+// O lead reage ao Script de Ligação 3C: ele responde bem a acolhimento e trava
+// com pergunta de implicação, que e o erro que a gestao mais cobra. Antes estas
+// regras exigiam o contrario — a dificil so fechava se o SDR pedisse o numero
+// do prejuizo, que agora e proibido.
+const REACAO = {
   facil:
-    "PROFUNDIDADE: se o SDR pedir número para o impacto da dor, dê. Se não pedir, não ofereça — " +
-    "conte o problema em palavras, sem tamanho.",
+    "COMO VOCÊ REAGE: você está receptivo e conta seu cenário sem dificultar. " +
+    "Se perguntarem quanto você perde, o que acontece se continuar assim, ou como seria se resolvesse, " +
+    "você desconversa — \"ah, nunca parei pra contar isso\", \"sei lá, é difícil medir\" — e muda de assunto, " +
+    "mas sem se irritar. " +
+    "Aceita horário para hoje ou amanhã. Se o SDR perguntar se pode contar com você, responde um sim claro.",
   medio:
-    "PROFUNDIDADE: você não fala o tamanho do prejuízo até alguém te perguntar em número. Antes disso você " +
-    "responde no vago — \"varia\", \"tá apertado\", \"uns meses melhores\". " +
-    "Você também não fala dos seus planos e do que quer pro futuro sem alguém puxar o assunto. " +
-    "Quando te oferecem uma reunião falando de coisa genérica, e não do problema que VOCÊ contou, você fica morno " +
-    "e diz que vai pensar.",
+    "COMO VOCÊ REAGE: você responde bem quando acolhem o que você falou, e fecha um pouco quando te " +
+    "interrogam. Se perguntarem quanto você perde, o que acontece se continuar assim, ou como seria se " +
+    "resolvesse, você desconversa e fica mais reservado pelo resto da conversa. " +
+    "Na primeira vez que falarem de horário, você empurra para daqui a alguns dias — tem a semana cheia. " +
+    "Só aceita para hoje ou amanhã se o SDR insistir e explicar por quê. " +
+    "Se a consultoria for apresentada de forma vaga, sem dizer o que acontece nela e o que você ganha, " +
+    "você fica morno e diz que vai ver. " +
+    "Você NÃO oferece um sim entusiasmado por conta própria: se o SDR não te perguntar se pode contar com " +
+    "você, encerre com um \"tá, combinado\" solto.",
   dificil:
-    "PROFUNDIDADE: você não fala o tamanho do prejuízo até alguém te perguntar em número, e se a pessoa não " +
-    "perguntar você fica vago o resto da conversa. " +
-    "Você também não fala dos seus planos e do que quer pro futuro sem alguém puxar o assunto. " +
-    "Você é do tipo que não fecha compromisso no escuro: enquanto você mesmo não tiver dito um número do que " +
-    "está perdendo, e enquanto não ouvir de volta o SEU problema com as SUAS palavras, você diz que vai pensar " +
-    "e pede pra receber por mensagem. Sem grosseria — você só não fecha.",
+    "COMO VOCÊ REAGE: você é desconfiado e não entrega nada de graça. Se perguntarem quanto você perde, " +
+    "o que acontece se continuar assim, ou como seria se resolvesse, você corta — \"isso aí é papo pra " +
+    "depois\" — e fica nitidamente mais fechado. " +
+    "Levante as DUAS objeções, uma de cada vez, e se o contorno for genérico volte à mesma com outras palavras. " +
+    "Empurre o horário para a semana que vem e insista; só ceda para hoje ou amanhã se o SDR puxar de volta " +
+    "com um motivo. " +
+    "Se o SDR falar de preço, de sistema ou do App Barber, desconfie em voz alta — você se cadastrou achando " +
+    "que era orientação, não venda. " +
+    "Você só fecha de verdade se as duas coisas acontecerem: a consultoria foi explicada com o que acontece " +
+    "nela, que é só sua, que não tem custo e o que você ganha; E o SDR te perguntou em voz alta se pode " +
+    "contar com você. Faltando qualquer uma, você diz que vai pensar e pede pra receber por mensagem. " +
+    "Sem grosseria — você só não fecha.",
 };
 
 const DIFF_RULES = {
@@ -567,7 +581,7 @@ function buildSystem(p) {
   // tela inicial nao chegava ao modelo, e a unica diferenca entre facil e dificil
   // era o texto `comportamento` de cada persona.
   const nivel = DIFF_RULES[p.difficulty] || DIFF_RULES.medio;
-  const prof  = PROFUNDIDADE[p.difficulty] || PROFUNDIDADE.medio;
+  const prof  = REACAO[p.difficulty] || REACAO.medio;
   return (
     "Você é " + p.name + ", dono da " + p.shop + " em " + p.city + ", PR.\n" +
     "Contexto: " + p.contexto + "\n" +
@@ -588,8 +602,8 @@ function buildSystem(p) {
     "- Respostas CURTAS: 1 a 3 frases. Como numa ligação real.\n" +
     "- Não entregue sua dor de graça — deixe o SDR descobrir fazendo perguntas.\n" +
     "- Só use objeções se o SDR empurrar produto sem ouvir ou pular etapas.\n" +
-    "- Se o SDR qualificar bem, identificar sua dor e conectar à consultoria, aceite o agendamento naturalmente.\n" +
-    "- Se o seu comportamento indicar que você é um lead DESQUALIFICADO (sem CNPJ ou sem R$300), NÃO aceite o agendamento mesmo que o SDR insista — mantenha sua limitação real.\n" +
+    "- Se o SDR acolher o que você falou e vender bem a consultoria, aceite o agendamento naturalmente.\n" +
+    "- Se o seu contexto diz que você NÃO tem CNPJ nem MEI, não aceite o agendamento mesmo que o SDR insista — mantenha sua limitação real.\n" +
     "- Se o SDR ficar mais de 3 turnos sem te perguntar nada, fique impaciente.\n\n" +
     "FORMATO DA SUA RESPOSTA — a regra mais importante de todas:\n" +
     "Escreva APENAS as palavras que você fala no telefone, como se fossem transcritas da ligação.\n" +
@@ -1020,7 +1034,7 @@ NÃO É PROLIXIDADE: vender a consultoria com passo a passo, exclusividade, ganh
 A prolixidade entra só no feedback, sem peso na nota.
 
 REGRA 5 — PONTO DE PERDA DO AGENDAMENTO
-Se a ligação NÃO gerou agendamento por falha do SDR (não por desqualificação legítima: sem CNPJ, sem caixa, negativa clara), identifique o momento exato da perda.
+Se a ligação NÃO gerou agendamento por falha do SDR (não por desqualificação legítima: sem CNPJ nem MEI, ou negativa clara), identifique o momento exato da perda.
 Conta como falha do SDR: não ofereceu horário para agora ou hoje; aceitou data distante sem tentar puxar para perto; recuou na primeira objeção em vez de acolher e voltar ao valor; não fez a pergunta de compromisso; aceitou um "tá, combinado" vago como se fosse sim; falou de preço, sistema ou App Barber e esfriou o lead.
 
 REGRA 6 — VOZ DO LÍDER
@@ -1056,12 +1070,12 @@ Fluência, simpatia e ritmo NÃO influenciam a nota.
 Marque cada item abaixo com true, false ou "NA". NÃO calcule percentual nenhum: o percentual é somado fora daqui a partir das suas marcações, e qualquer número que você devolver será ignorado.
 - true = o SDR fez, e existe trecho na transcrição que prova
 - false = o SDR não fez, ou fez de um jeito que não conta
-- "NA" = a etapa não existiu nesta ligação e isso não é falha do SDR. Exemplos: o lead nunca objetou; o faturamento é R$10k ou mais, então o caixa de R$300 não se aplica; a ligação foi legitimamente desqualificada no CNPJ e as etapas seguintes deixaram de existir.
+- "NA" = a etapa não existiu nesta ligação e isso não é falha do SDR. Exemplos: o lead nunca objetou; a ligação foi legitimamente encerrada por falta de CNPJ e as etapas seguintes deixaram de existir.
 Em dúvida entre true e false, marque false. "NA" é só para etapa inexistente — nunca para etapa que o SDR simplesmente deixou de fazer.
 
 REGRA DA DESQUALIFICAÇÃO (leia antes de marcar o fechamento):
-Se o lead era desqualificado (sem CNPJ, ou faturamento abaixo de R$10k sem os R$300) e o SDR encerrou a ligação corretamente em vez de agendar, então NÃO existiu etapa de fechamento — e isso é ACERTO, não falha. Nesse caso marque "NA" em compromisso_antes, data_hora, confirmacao_escrita e recap, e marque respeitou_desqualificacao como true. Marcar esses itens como false pune o SDR por ter feito a coisa certa.
-Se o SDR agendou um lead desqualificado, marque respeitou_desqualificacao como false e avalie os demais itens de fechamento normalmente.
+Se o lead não tem CNPJ nem MEI e o SDR encerrou a ligação corretamente em vez de agendar, então NÃO existiu etapa de fechamento — e isso é ACERTO, não falha. Nesse caso marque "NA" em prox_ofereceu, prox_d0_d1_d2, prox_recap, prox_whatsapp e em todos os itens da etapa 7, e marque prox_respeitou_cnpj como true. Marcar esses itens como false pune o SDR por ter feito a coisa certa.
+Se o SDR agendou um lead sem CNPJ, marque prox_respeitou_cnpj como false e avalie os demais itens normalmente.
 
 ` + checklistTexto + `
 
@@ -1084,7 +1098,6 @@ AS TRÊS COISAS QUE MAIS PESAM PARA NOTA MÁXIMA: a consultoria vendida com pass
 - Faturamento vem pré-preenchido no card — o SDR CONFIRMA na call, não pergunta do zero.
 - Cidade e nome da barbearia já estão no card — não cobrar.
 - CNPJ é obrigatório confirmar — qualquer CNPJ ativo serve. Sem CNPJ de nenhuma área = desqualificado, não agenda.
-- Se faturamento < R$10k: obrigatório validar se tem R$300 para investir. Sem isso = desqualificado, não agenda.
 - Objetivo da call: agendar consultoria GRATUITA — o SDR não vende produto.
 - Se o lead era desqualificado, avalie se o SDR identificou, comunicou com respeito e encerrou bem — e marque como NA as etapas que deixaram de existir por causa disso.
 - Turnos de fala do SDR nesta call: ` + numTurnos + `
