@@ -443,6 +443,32 @@ const statusLbl = document.getElementById("status-label");
 const txPrev    = document.getElementById("transcript-preview");
 const endBtn    = document.getElementById("end-btn");
 
+// Em iPhone e iPad NENHUM navegador suporta reconhecimento de fala — Safari e
+// Chrome lá usam o mesmo motor. Avisar so quando o SDR aperta o microfone faz
+// ele descobrir depois de ja ter escolhido persona e comecado a ligacao.
+function checarAparelho() {
+  if (window.SpeechRecognition || window.webkitSpeechRecognition) return;
+  const aviso = document.createElement("div");
+  aviso.style.cssText = "background:#2a1f00;border:1px solid #5a4a1a;color:#f5c518;" +
+    "padding:14px 16px;border-radius:10px;margin:0 0 1rem;font-size:14px;line-height:1.6";
+  aviso.innerHTML = "<b>Este aparelho não grava a sua voz.</b><br>" +
+    "O reconhecimento de fala não funciona em iPhone nem iPad, em nenhum navegador. " +
+    "Faça a simulação pelo computador, ou por um celular Android usando o Chrome.";
+  const alvo = document.querySelector("#setup") || document.body.firstElementChild;
+  alvo.parentNode.insertBefore(aviso, alvo);
+}
+
+// Mantem a tela acesa durante a ligacao: se o celular apaga, a pagina e suspensa
+// e a avaliacao morre no meio.
+let wakeLock = null;
+async function segurarTela() {
+  try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); }
+  catch (e) { /* sem wake lock, a fila de pendentes cobre */ }
+}
+function soltarTela() {
+  try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {}
+}
+
 // ── Nome do SDR ──
 function onNameInput() {
   sdrName = document.getElementById("sdr-name-input").value.trim();
@@ -1177,42 +1203,79 @@ NÃO devolva nota numérica em critério nenhum. As notas de 0 a 5 são calculad
       if (result.criterios[k]) result.criterios[k].nota = av.notas[k];
     }
 
+    soltarTela();
     renderScore(result); setStatus("Avaliação concluída!");
     saveSimulationResult(result, av, transcript, modeloAvaliador);
   } catch(e) {
+    soltarTela();
     setStatus("Erro ao avaliar: " + e.message);
     endBtn.removeAttribute("disabled"); sessionEnded = false;
   }
 });
 
 // ── Salva resultado no histórico central ──
+// Fila local de envios pendentes. No celular a pagina e suspensa quando a tela
+// apaga ou o SDR troca de app, e o fetch do save morre junto — a nota sumia sem
+// ninguem saber. O payload fica guardado e sobe na proxima vez que a pagina abrir.
+const PENDENTES = "roleplay_pendentes";
+
+function guardarPendente(payload) {
+  try {
+    const fila = JSON.parse(localStorage.getItem(PENDENTES) || "[]");
+    fila.push({ payload, em: Date.now() });
+    localStorage.setItem(PENDENTES, JSON.stringify(fila.slice(-10)));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function enviarPendentes() {
+  let fila;
+  try { fila = JSON.parse(localStorage.getItem(PENDENTES) || "[]"); } catch (e) { return; }
+  if (!fila.length) return;
+  const sobraram = [];
+  for (const item of fila) {
+    try {
+      const r = await fetch(API_URL + "/save", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item.payload), keepalive: true,
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      console.info("Simulação pendente enviada:", new Date(item.em).toLocaleString("pt-BR"));
+    } catch (e) { sobraram.push(item); }
+  }
+  try { localStorage.setItem(PENDENTES, JSON.stringify(sobraram)); } catch (e) {}
+}
+
 async function saveSimulationResult(result, av, transcript, modeloAvaliador) {
+  const corpo = {
+    sdr_name: sdrName,
+    persona_name: persona.name,
+    persona_shop: persona.shop,
+    persona_city: persona.city,
+    level: persona.difficulty,
+    rubrica_versao: "v4.1",
+    modelo_avaliador: modeloAvaliador || null,
+    media_criterios: av.media,
+    script_pct: av.scriptPct,
+    avaliacao: result,
+    resumo_lider: result.resumo_lider || "",
+    veredicto: result.sintese || "",
+    transcript: transcript || "",
+  };
   try {
     const resp = await fetch(API_URL + "/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sdr_name: sdrName,
-        persona_name: persona.name,
-        persona_shop: persona.shop,
-        persona_city: persona.city,
-        level: persona.difficulty,
-        rubrica_versao: "v4.1",
-        modelo_avaliador: modeloAvaliador || null,
-        media_criterios: av.media,
-        script_pct: av.scriptPct,
-        avaliacao: result,
-        resumo_lider: result.resumo_lider || "",
-        veredicto: result.sintese || "",
-        transcript: transcript || "",
-      }),
+      body: JSON.stringify(corpo),
+      keepalive: true,
     });
     if (!resp.ok) throw new Error("HTTP " + resp.status);
   } catch (e) {
-    // Nao trava a experiencia do SDR, mas tambem nao some em silencio:
-    // sem esse aviso a nota evapora e ninguem fica sabendo.
     console.error("Erro ao salvar histórico:", e);
-    setStatus("Avaliação concluída — mas NÃO foi salva no histórico. Avise o gestor.");
+    const guardou = guardarPendente(corpo);
+    setStatus(guardou
+      ? "Avaliação concluída. O envio falhou e ficou guardado — abra esta página de novo com internet que ela sobe sozinha."
+      : "Avaliação concluída — mas NÃO foi salva no histórico. Avise o gestor.");
   }
 }
 
@@ -1387,8 +1450,13 @@ async function init() {
   document.getElementById("scorecard").style.display = "none";
   renderPersona(persona);
   await loadVoices();
+  segurarTela();
   getGreeting();
 }
+
+// Ao abrir: avisa se o aparelho não grava voz e sobe o que ficou pendente.
+checarAparelho();
+enviarPendentes();
 </script>
 </body>
 </html>
