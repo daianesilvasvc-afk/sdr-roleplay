@@ -158,6 +158,12 @@ const esc = s => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // As etapas do Script de Ligação 3C, na ordem e com os pesos que a gestão cobra.
+// Agrupa SDR ignorando acento e maiúscula: normalizar na gravação resolve daqui
+// pra frente, mas "Vinicius" e "Vinícius" continuam sendo a mesma pessoa e o
+// painel não pode separá-los em duas médias.
+const chaveSdr = n => String(n || "").trim()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 const ETAPAS = ["abertura", "validar", "mapear", "consultoria", "objecoes", "proximo", "compromisso"];
 const ETAPA_ROTULO = {
   abertura: "Abertura", validar: "Validar", mapear: "Mapear", consultoria: "Consultoria",
@@ -238,7 +244,24 @@ function populateSdrFilter() {
       nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
     sel.value = atual;
   };
-  preencher("sdr-filter", "sdr_name", "Todos os SDRs");
+  // Uma opção por pessoa, mostrando a grafia mais usada.
+  const porChave = {};
+  for (const r of allResults) {
+    const k = chaveSdr(r.sdr_name);
+    if (!k) continue;
+    (porChave[k] = porChave[k] || []).push(r.sdr_name);
+  }
+  const selSdr = document.getElementById("sdr-filter");
+  const atualSdr = selSdr.value;
+  selSdr.innerHTML = '<option value="">Todos os SDRs</option>' +
+    Object.entries(porChave).map(([k, nomes]) => {
+      const contagem = {};
+      for (const n of nomes) contagem[n] = (contagem[n] || 0) + 1;
+      const principal = Object.keys(contagem).sort((a, b) => contagem[b] - contagem[a])[0];
+      return { k, principal };
+    }).sort((a, b) => a.principal.localeCompare(b.principal, "pt-BR"))
+      .map(({ k, principal }) => `<option value="${esc(k)}">${esc(principal)}</option>`).join("");
+  selSdr.value = atualSdr;
   preencher("persona-filter", "persona_name", "Todas as personas");
 }
 
@@ -258,7 +281,7 @@ function applyFilter() {
   const limite = dias ? Date.now() - dias * 864e5 : null;
 
   const rows = allResults.filter(r =>
-    (!sdr || r.sdr_name === sdr) &&
+    (!sdr || chaveSdr(r.sdr_name) === sdr) &&
     (!nivel || r.level === nivel) &&
     (!persona || r.persona_name === persona) &&
     (!limite || new Date(String(r.created_at).replace(" ", "T") + "Z").getTime() >= limite)
@@ -286,7 +309,7 @@ function render(rows) {
   }
   const mCrit = media(rows, "media_criterios");
   const mScript = media(rows, "script_pct");
-  const bySdr = new Set(rows.map(r => r.sdr_name)).size;
+  const bySdr = new Set(rows.map(r => chaveSdr(r.sdr_name))).size;
   const card = (lbl, val, cls) =>
     `<div class="sum-card"><div class="lbl">${lbl}</div><div class="val ${cls}">${val}</div></div>`;
   summary.innerHTML =

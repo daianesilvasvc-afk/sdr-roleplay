@@ -217,7 +217,7 @@
   <!-- TELA 2: sessão de roleplay -->
   <div id="session-screen">
     <h2>Simulador SDR — Modo Áudio</h2>
-    <p class="subtitle">Segure o botão para falar · Solte para enviar · O barbeiro responde em voz</p>
+    <p class="subtitle">Toque para falar · Toque de novo para enviar · O barbeiro responde em voz</p>
 
     <div id="persona-card">
       <div id="persona-avatar">--</div>
@@ -236,7 +236,7 @@
         <div id="pulse-ring"></div>
         <span id="mic-icon">🎙️</span>
       </div>
-      <div id="mic-hint">Segure para falar · Solte para enviar</div>
+      <div id="mic-hint">Toque para falar</div>
       <div id="transcript-preview"></div>
     </div>
 
@@ -470,8 +470,16 @@ function soltarTela() {
 }
 
 // ── Nome do SDR ──
+// O nome e digitado a mao e cada um escreve de um jeito: "Bryan" e "bryan"
+// viravam dois SDRs no painel, com media separada. Normaliza na origem.
+function normalizarNome(n) {
+  return String(n || "").trim().replace(/\s+/g, " ")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/(^|[\s'-])(\p{L})/gu, (_, sep, letra) => sep + letra.toLocaleUpperCase("pt-BR"));
+}
+
 function onNameInput() {
-  sdrName = document.getElementById("sdr-name-input").value.trim();
+  sdrName = normalizarNome(document.getElementById("sdr-name-input").value);
   updateStartBtn();
 }
 
@@ -719,7 +727,8 @@ function createRecognition(onFinalResult) {
   if (!SR) { alert("Reconhecimento de fala não suportado. Use Chrome ou Edge."); return null; }
   const rec = new SR();
   rec.lang = "pt-BR";
-  rec.continuous = false;       // false = mais estável para push-to-talk
+  rec.continuous = false;       // o onend reinicia enquanto isListening, então a
+                                // gravação segue aberta até o segundo toque
   rec.interimResults = true;
   rec.maxAlternatives = 1;
 
@@ -764,6 +773,8 @@ function startListening() {
   currentTranscript = ""; txPrev.textContent = "";
   isListening = true;
   micBtn.classList.add("active"); micIcon.textContent = "🔴";
+  const dica = document.getElementById("mic-hint");
+  if (dica) dica.textContent = "Gravando… toque de novo para enviar";
   setStatus("Ouvindo... fale agora", "listening");
 
   // Cria instância nova a cada press
@@ -780,15 +791,21 @@ function stopListening() {
   if (!isListening) return;
   isListening = false;
   micBtn.classList.remove("active"); micIcon.textContent = "🎙️";
+  const dica = document.getElementById("mic-hint");
+  if (dica) dica.textContent = "Toque para falar";
   // onend do recognition vai entregar o resultado
   try { if (recognition) recognition.stop(); } catch(e) {}
 }
 
-micBtn.addEventListener("mousedown",  (e) => { e.preventDefault(); startListening(); });
-micBtn.addEventListener("mouseup",    stopListening);
-micBtn.addEventListener("mouseleave", () => { if (isListening) stopListening(); });
-micBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startListening(); }, { passive: false });
-micBtn.addEventListener("touchend",   (e) => { e.preventDefault(); stopListening(); });
+// Toque para começar, toque de novo para enviar. Era segurar o botão, e o
+// `mouseleave` cortava a frase no meio sempre que o dedo ou o cursor escorregava
+// para fora — o SDR perdia o que já tinha falado sem entender por quê.
+// Só `click`: no toque o navegador dispara click depois do touchend, então usar
+// os dois faria a gravação ligar e desligar no mesmo toque.
+micBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  if (isListening) stopListening(); else startListening();
+});
 
 // ── Turno ──
 async function sendTurn(text) {
@@ -811,7 +828,7 @@ async function sendTurn(text) {
     setStatus(persona.name + " falando...", "speaking");
     speak(reply, () => {
       micBtn.classList.remove("speaking-state"); micIcon.textContent = "🎙️";
-      setStatus("Sua vez — segure para falar");
+      setStatus("Sua vez — toque para falar");
       isProcessing = false; micBtn.removeAttribute("disabled");
       if (turnCount >= 2) endBtn.removeAttribute("disabled");
     });
@@ -835,13 +852,13 @@ async function getGreeting() {
     setStatus(persona.name + " falando...", "speaking");
     speak(reply, () => {
       micBtn.classList.remove("speaking-state"); micIcon.textContent = "🎙️";
-      setStatus("Sua vez — segure para falar"); micBtn.removeAttribute("disabled");
+      setStatus("Sua vez — toque para falar"); micBtn.removeAttribute("disabled");
     });
   } catch(e) {
     hideTyping();
     const fb = "Alô, " + persona.shop + ", boa tarde!";
     history.push({ role: "assistant", content: fb }); addMsg("barbeiro", fb);
-    speak(fb, () => { micIcon.textContent = "🎙️"; setStatus("Sua vez — segure para falar"); micBtn.removeAttribute("disabled"); });
+    speak(fb, () => { micIcon.textContent = "🎙️"; setStatus("Sua vez — toque para falar"); micBtn.removeAttribute("disabled"); });
   }
 }
 
