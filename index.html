@@ -320,9 +320,9 @@ const PERSONAS = {
       name:"Nicolas Prado", initials:"NP", city:"Lapa", shop:"Prado Corte & Barba",
       desc:"Perde cliente por demorar a responder no WhatsApp · Perfil I",
       disc:"I",
-      contexto:"Dono há 2 anos, trabalha sozinho com 1 ajudante. Fatura R$9k/mês. CNPJ ativo (MEI). Agenda tudo pelo WhatsApp do celular pessoal. Se cadastrou depois de ver um conteúdo sobre atendimento automático.",
+      contexto:"Dono há 2 anos, trabalha sozinho com 1 ajudante. Fatura R$9k/mês. CNPJ ativo (MEI). Agenda tudo pelo WhatsApp do celular pessoal. Se cadastrou depois de ver um conteúdo sobre a Cash IA, a IA de recepção.",
       dor:"Demora pra responder e pra remarcar; perde horário vago porque não consegue avisar ninguém a tempo.",
-      objecoes:["Isso funciona pra barbearia pequena?","Preciso instalar alguma coisa?"],
+      objecoes:["A Cash IA funciona pra barbearia pequena?","Preciso instalar alguma coisa?"],
       comportamento:"Simpático e tagarela. Reclama do WhatsApp sem precisar de muita pergunta. Se o SDR acolher e disser que a consultoria olha o atendimento dele, aceita animado. Perfil I: comunicativo, quer ser ouvido."
     },
     {
@@ -401,12 +401,12 @@ const PERSONAS = {
     },
     {
       name:"Murilo Tavares", initials:"MT", city:"Bocaiúva do Sul", shop:"Tavares Barbearia",
-      desc:"Quer IA no atendimento, não sabe do resto · Perfil I",
+      desc:"Veio pela Cash IA e não pensou no resto · Perfil I",
       disc:"I",
-      contexto:"Dono há 3 anos, 2 barbeiros. Fatura R$17k/mês. CNPJ ativo. Viu um conteúdo sobre atendimento com IA e se cadastrou achando que era isso que a gente vende. Não pensou em gestão nem assinatura ainda.",
+      contexto:"Dono há 3 anos, 2 barbeiros. Fatura R$17k/mês. CNPJ ativo. Viu um conteúdo sobre a Cash IA e se cadastrou achando que ia contratar a IA de recepção direto. Não pensou em gestão nem assinatura ainda.",
       dor:"Perde tempo respondendo o mesmo no WhatsApp e não consegue remarcar rápido quem desmarca.",
-      objecoes:["Vocês têm o robô de WhatsApp?","Mas eu queria mesmo era a IA, isso serve?"],
-      comportamento:"Entusiasmado mas focado só na IA. Insiste em perguntar sobre o robô de atendimento. Se o SDR acolher esse interesse e mostrar que a consultoria começa olhando o atendimento dele, aceita. Se o SDR ignorar o que ele pediu e falar só de assinatura, esfria. Perfil I: entusiasmado, quer ser atendido no que pediu."
+      objecoes:["Vocês vão me vender a Cash IA ou não?","Mas eu queria mesmo era a IA de recepção, essa consultoria serve pra quê?"],
+      comportamento:"Entusiasmado mas focado só na Cash IA. Insiste em perguntar se vai contratar a IA de recepção hoje. Se o SDR acolher esse interesse e disser que o especialista vai olhar o atendimento dele na consultoria, aceita. Se o SDR ignorar o que ele pediu e falar só de assinatura, esfria. Se o SDR tentar explicar como a Cash IA funciona por dentro ou dar preço dela, você entra em detalhe técnico e a ligação estica. Perfil I: entusiasmado, quer ser atendido no que pediu."
     },
     {
       name:"Sidnei Ramos", initials:"SR", city:"Tijucas do Sul", shop:"Ramos Barbearia",
@@ -468,9 +468,9 @@ const PERSONAS = {
       name:"João Vitor Rosa", initials:"JR", city:"Agudos do Sul", shop:"Rosa Barbearia",
       desc:"Só quer resolver o tempo de resposta · Perfil D",
       disc:"D",
-      contexto:"Dono há 6 anos, 4 barbeiros. Fatura R$28k/mês. CNPJ ativo. Atende tudo pelo celular e perde cliente porque demora. Se cadastrou atrás de automação de atendimento e nada mais.",
+      contexto:"Dono há 6 anos, 4 barbeiros. Fatura R$28k/mês. CNPJ ativo. Atende tudo pelo celular e perde cliente porque demora. Se cadastrou atrás da Cash IA e de nada mais.",
       dor:"Demora pra responder e pra remarcar; cliente desiste e vai na barbearia do lado.",
-      objecoes:["Isso resolve meu tempo de resposta ou não?","Tô sem tempo pra reunião","Quanto é?"],
+      objecoes:["A Cash IA resolve meu tempo de resposta ou não?","Tô sem tempo pra reunião","Quanto é?"],
       comportamento:"Impaciente e direto ao ponto. Corta o SDR se ele enrolar. Empurra o horário para a semana que vem e insiste. Só cede se o SDR puxar de volta com motivo e mostrar que a consultoria começa pelo problema que ELE trouxe. Se o SDR falar de assinatura antes de acolher o problema de atendimento, fique irritado. Perfil D: sem paciência, quer solução."
     },
     {
@@ -768,6 +768,7 @@ function buildSystem(p) {
     "- Você é um lead INBOUND — se cadastrou para receber uma consultoria GRATUITA sobre assinatura e o Cash Barber.\n" +
     "- Você já viu conteúdo do Rafa ou do Lincoln nas redes sociais e se interessou.\n" +
     "- Você sabe que existe assinatura, recorrência, cashback — não é novidade total.\n" +
+    "- Você também já ouviu falar da Cash IA, a IA de recepção que atende e agenda pelo WhatsApp.\n" +
     "- Você está receptivo à ligação — não é cold call, você esperava esse contato.\n" +
     "- Você NÃO questiona por que o SDR está perguntando coisas — entende que é para entender seu perfil.\n\n" +
     "REGRAS ABSOLUTAS:\n" +
@@ -1025,7 +1026,7 @@ const CHECKLIST_SCRIPT = [
     ["con_sem_custo",    "Disse explicitamente que não tem custo nenhum"],
     ["con_ganhos",       "Citou ao menos um ganho concreto: gestão mais completa, faturar mais sem trabalhar o dobro, ser empresário do próprio negócio, contratar com qualidade"],
     ["con_conectou",     "Amarrou a consultoria ao que o LEAD falou no passo 3 (\"aquilo que você falou de...\"). Pitch genérico, igual para qualquer lead, é false"],
-    ["con_sem_proibida", "NÃO usou \"apresentação\", \"demonstração\" nem \"te mostrar o sistema\", e NÃO falou de preço, de sistema nem do App Barber. Esses assuntos ficam para a consultoria"],
+    ["con_sem_proibida", "NÃO usou \"apresentação\", \"demonstração\" nem \"te mostrar o sistema\", e NÃO falou de preço, de sistema, do App Barber nem de como a Cash IA funciona por dentro. Esses assuntos ficam para a consultoria. Acolher o interesse do lead na Cash IA e dizer que o especialista vai olhar isso é CERTO e não conta como falha"],
   ]},
   { grupo: "5. Objeções com acolhimento", peso: 10, chave: "objecoes", itens: [
     ["obj_acolheu",      "Acolheu a objeção antes de qualquer argumento (\"entendo total, a rotina é puxada mesmo\")"],
@@ -1282,6 +1283,8 @@ AS TRÊS COISAS QUE MAIS PESAM PARA NOTA MÁXIMA: a consultoria vendida com pass
 - Cidade e nome da barbearia já estão no card — não cobrar.
 - CNPJ é obrigatório confirmar — qualquer CNPJ ativo serve. Sem CNPJ de nenhuma área = desqualificado, não agenda.
 - Objetivo da call: agendar consultoria GRATUITA — o SDR não vende produto.
+- A Cash Barber tem uma IA de recepção, a Cash IA, que atende e agenda pelo WhatsApp. Muito lead chega perguntando por ela, e isso é porta de entrada legítima.
+- Mesmo quando o lead veio atrás da Cash IA, o objetivo da ligação continua sendo agendar a consultoria. O certo é ACOLHER esse interesse e dizer que o especialista vai olhar o atendimento dele junto com o resto. Demonstrar a ferramenta, explicar como funciona por dentro ou falar preço dela na ligação é erro — isso é assunto da consultoria.
 - Se o lead era desqualificado, avalie se o SDR identificou, comunicou com respeito e encerrou bem — e marque como NA as etapas que deixaram de existir por causa disso.
 - Turnos de fala do SDR nesta call: ` + numTurnos + `
 
