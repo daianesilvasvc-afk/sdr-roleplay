@@ -334,6 +334,15 @@ const PERSONAS = {
       objecoes:["Tenho que levar algum documento?","Isso serve pra quem tá começando?"],
       comportamento:"Educado e um pouco inseguro. Fala do medo de errar com a equipe nova. Precisa de acolhimento. Aceita o agendamento quando sente que não vai ser julgado. Perfil S: cauteloso, busca segurança."
     },
+    {
+      name:"Tiago Monteiro", initials:"TM", city:"Fazenda Rio Grande", shop:"Monteiro Barber",
+      desc:"Veio do anúncio da Cash.IA, atende sozinho no celular · Perfil I",
+      disc:"I",
+      contexto:"Dono há 3 anos, 2 barbeiros. Fatura R$15k/mês. CNPJ ativo. CAMPANHA CASH.IA: deixou o contato num vídeo da Cash.IA, a recepcionista com inteligência artificial, que mostrava ela respondendo e agendando sozinha no WhatsApp. Ele mesmo responde o WhatsApp entre um corte e outro.",
+      dor:"Demora pra responder porque está com a tesoura na mão; cliente pergunta e some.",
+      objecoes:["Me manda um material no WhatsApp que eu vejo depois","Quanto custa isso?"],
+      comportamento:"Animado e falante. Lembra do vídeo na hora se o SDR citar a recepcionista. Conta sem dificuldade que é ele mesmo quem responde. Se o SDR acolher e disser que o especialista vai olhar o atendimento dele junto com o negócio, aceita. Perfil I: gosta de conversar."
+    },
   ],
   medio: [
     {
@@ -417,6 +426,15 @@ const PERSONAS = {
       objecoes:["Preciso de CNPJ pra participar?","Dá pra começar antes de abrir?"],
       comportamento:"Humilde e receptivo. Quando o SDR perguntar sobre CNPJ ou MEI, confirme que NÃO tem nenhum dos dois, tudo informal. Se o SDR explicar com respeito que a consultoria pressupõe CNPJ ou MEI, orientar a abrir o MEI e encerrar com cordialidade, fique agradecido. Se o SDR agendar mesmo assim ou cortar sem explicar, fique confuso. Perfil S: boa vontade, precisa de direção."
     },
+    {
+      name:"Elton Barbosa", initials:"EB2", city:"Curitiba", shop:"Barbosa Premium Barber",
+      desc:"Já usa um bot e reclama que é robótico · Perfil C",
+      disc:"C",
+      contexto:"Dono há 6 anos, 4 barbeiros. Fatura R$33k/mês. CNPJ ativo. CAMPANHA CASH.IA: se cadastrou no anúncio da recepcionista. Já usa um bot de WhatsApp de outro fornecedor há 1 ano e não gosta — responde travado e não consegue remarcar.",
+      dor:"O bot atual responde de forma robótica e não resolve remarcação; o cliente acaba ligando mesmo assim.",
+      objecoes:["Mas eu já uso outro sistema","Eu só quero a recepcionista, não quero mudar tudo","Quanto custa?"],
+      comportamento:"Analítico e crítico. Reclama do bot atual com detalhe. Se o SDR comparar ferramentas ou falar mal do fornecedor dele, você fecha — ninguém gosta de ouvir que escolheu errado. Se o SDR só devolver com as suas palavras e levar para a consultoria, você abre. Insista pelo menos uma vez que só quer a recepcionista. Perfil C: detalhista, testa o argumento."
+    },
   ],
   dificil: [
     {
@@ -499,6 +517,24 @@ const PERSONAS = {
       dor:"Agenda cheia mas sem previsibilidade; mês fraco aparece do nada e ele não consegue prever.",
       objecoes:["Assinatura não barateia meu serviço?","Meu cliente paga bem, por que eu daria desconto?","Quanto custa?"],
       comportamento:"Confiante, quase arrogante sobre o próprio negócio. Questiona a premissa da assinatura. Se o SDR tentar convencer por telefone que ele está errado, você endurece. Se ele acolher o ponto e disser que a consultoria vai olhar os números pra ver se faz sentido no caso dele, você considera. Perfil D: orgulhoso do que construiu."
+    },
+    {
+      name:"Sérgio Dantas", initials:"SD", city:"São José dos Pinhais", shop:"Dantas Barbearia",
+      desc:"Já é cliente Cash Barber e quer a IA · Perfil D",
+      disc:"D",
+      contexto:"Dono há 7 anos, 5 barbeiros. Fatura R$40k/mês. CNPJ ativo. CAMPANHA CASH.IA: viu o anúncio da recepcionista e deixou o contato. JÁ É CLIENTE CASH BARBER há 2 anos — usa o sistema todo dia e tem assinatura rodando. Quer saber como contratar a IA.",
+      dor:"O WhatsApp fica sem resposta à noite e no domingo; perde agendamento fora do horário.",
+      objecoes:["Eu já sou cliente de vocês, por que preciso de consultoria?","Só me fala como eu ligo a IA"],
+      comportamento:"Direto e um pouco impaciente. Deixe claro logo que JÁ É CLIENTE Cash Barber quando o SDR perguntar do sistema. Insista em saber como contratar a Cash.IA. Se o SDR tentar te agendar uma consultoria mesmo assim, questione — você já conhece tudo. Se ele perceber que você é cliente e te orientar a contratar a Cash.IA direto pelo seu próprio Cash Barber, você fica satisfeito e agradece. Perfil D: quer resolver, não quer reunião."
+    },
+    {
+      name:"Juliano Petry", initials:"JP", city:"Colombo", shop:"Petry Barbearia",
+      desc:"Quer empurrar tudo para janeiro · Perfil S",
+      disc:"S",
+      contexto:"Dono há 5 anos, 3 barbeiros. Fatura R$23k/mês. CNPJ ativo. CAMPANHA CASH.IA: se cadastrou no vídeo da recepcionista. Está no fim do ano, com a barbearia cheia, e a cabeça dele é deixar tudo para depois das festas.",
+      dor:"Não dá conta do WhatsApp na correria de fim de ano e perde horário que poderia encaixar.",
+      objecoes:["Agora tá corrido, vamos deixar pra janeiro","Me chama depois do Ano Novo","Quanto custa?"],
+      comportamento:"Educado mas esquivo. Empurre a conversa para janeiro pelo menos DUAS vezes, com jeito. Se o SDR aceitar janeiro, encerre satisfeito — e isso é erro dele. Se ele trouxer de volta mostrando que janeiro é o melhor mês para lançar a assinatura e que dá pra chegar lá pronto, você considera e aceita um horário desta semana. Perfil S: evita conflito, cede a argumento bom."
     },
   ],
 };
@@ -1007,6 +1043,8 @@ const CHECKLIST_SCRIPT = [
     ["ab_identificou",   "Disse o próprio nome e que é da Podium Educação"],
     ["ab_motivo",        "Explicou POR QUE está ligando: o Rafa selecionou um grupo de donos de barbearia e pediu que a equipe trouxesse um direcionamento"],
     ["ab_permissao",     "Perguntou se o lead consegue falar agora"],
+    ["ia_abertura",      "CAMPANHA CASH.IA: abriu citando o criativo da Cash.IA, a recepcionista com inteligência artificial — não pelo sistema nem pela assinatura. NA quando o lead não veio por essa campanha"],
+    ["ia_pergunta_whatsapp", "CAMPANHA CASH.IA: fez a pergunta do criativo — quem responde o WhatsApp da barbearia hoje, enquanto ele está cortando. NA quando o lead não veio pela campanha"],
     ["ab_sem_desculpa",  "NÃO pediu desculpa por incomodar nem usou tom de quem está atrapalhando. Qualquer \"desculpa incomodar\", \"só um minutinho\", \"será que eu posso tomar seu tempo\" é false"],
   ]},
   { grupo: "2. Validar o negócio", peso: 15, chave: "validar", itens: [
@@ -1026,6 +1064,7 @@ const CHECKLIST_SCRIPT = [
     ["con_sem_custo",    "Disse explicitamente que não tem custo nenhum"],
     ["con_ganhos",       "Citou ao menos um ganho concreto: gestão mais completa, faturar mais sem trabalhar o dobro, ser empresário do próprio negócio, contratar com qualidade"],
     ["con_conectou",     "Amarrou a consultoria ao que o LEAD falou no passo 3 (\"aquilo que você falou de...\"). Pitch genérico, igual para qualquer lead, é false"],
+    ["ia_ponte",         "CAMPANHA CASH.IA: disse a frase de ponte — a recepcionista funciona junto com a agenda e a gestão, DENTRO do Cash Barber, e por isso não adianta olhar só o WhatsApp. Dizer que ela \"só funciona se contratar o Cash Barber\" é false: é ponte, não condição de compra. NA quando o lead não veio pela campanha"],
     ["con_sem_proibida", "NÃO usou \"apresentação\", \"demonstração\" nem \"te mostrar o sistema\", e NÃO falou de preço, de sistema, do App Barber nem de como a Cash IA funciona por dentro. Esses assuntos ficam para a consultoria. Acolher o interesse do lead na Cash IA e dizer que o especialista vai olhar isso é CERTO e não conta como falha"],
   ]},
   { grupo: "5. Objeções com acolhimento", peso: 10, chave: "objecoes", itens: [
@@ -1038,6 +1077,8 @@ const CHECKLIST_SCRIPT = [
     ["prox_d0_d1_d2",    "O agendamento ficou em D0, D1 ou no máximo D2. Mais longe que isso só vale se o SDR tentou puxar para perto antes (agenda que não abriu, exceção depois das 18h) — se aceitou a data distante de primeira, é false"],
     ["prox_recap",       "Recapitulou o dia e a hora no fecho"],
     ["prox_whatsapp",    "Combinou a confirmação por WhatsApp"],
+    ["ia_ja_cliente",    "CAMPANHA CASH.IA: se o lead JÁ É CLIENTE Cash Barber, o SDR percebeu e orientou que ele mesmo contrate a Cash.IA pelo próprio Cash Barber, em vez de agendar consultoria. NA quando o lead não é cliente"],
+    ["ia_nao_janeiro",   "CAMPANHA CASH.IA: NÃO agendou para janeiro. Se o lead empurrou para lá, trouxe de volta com o argumento da campanha — janeiro é o melhor mês para lançar a assinatura, e o certo é chegar lá com tudo pronto. NA quando o lead não veio pela campanha ou não citou janeiro"],
     ["prox_respeitou_cnpj", "O desfecho bateu com a qualificação: agendou lead com CNPJ ou MEI, OU encerrou com respeito um lead sem CNPJ nenhum. Agendar quem não tem CNPJ é false, por melhor que tenha sido o resto"],
   ]},
   { grupo: "7. Compromisso firmado", peso: 20, chave: "compromisso", itens: [
@@ -1284,6 +1325,10 @@ AS TRÊS COISAS QUE MAIS PESAM PARA NOTA MÁXIMA: a consultoria vendida com pass
 - CNPJ é obrigatório confirmar — qualquer CNPJ ativo serve. Sem CNPJ de nenhuma área = desqualificado, não agenda.
 - Objetivo da call: agendar consultoria GRATUITA — o SDR não vende produto.
 - A Cash Barber tem uma IA de recepção, a Cash IA, que atende e agenda pelo WhatsApp. Muito lead chega perguntando por ela, e isso é porta de entrada legítima.
+- CAMPANHA CASH.IA: parte dos leads se cadastrou num vídeo ou anúncio da Cash.IA. Quando o contexto da persona disser isso, o grupo "Campanha Cash.IA" do checklist se aplica; quando não disser, marque os quatro itens dele como "NA".
+  Nessa campanha o SDR abre citando o criativo da recepcionista, pergunta quem responde o WhatsApp enquanto ele corta, e ao vender a consultoria diz a frase de ponte — a recepcionista funciona junto com a agenda e a gestão, dentro do Cash Barber, por isso não adianta olhar só o WhatsApp. A consultoria segue sendo o destino.
+  Se o lead JÁ É CLIENTE Cash Barber, não se agenda consultoria: o certo é orientar que ele mesmo contrate a Cash.IA pelo próprio Cash Barber.
+  Nunca agendar para janeiro — é o melhor mês para lançar assinatura, e o certo é puxar para antes.
 - Mesmo quando o lead veio atrás da Cash IA, o objetivo da ligação continua sendo agendar a consultoria. O certo é ACOLHER esse interesse e dizer que o especialista vai olhar o atendimento dele junto com o resto. Demonstrar a ferramenta, explicar como funciona por dentro ou falar preço dela na ligação é erro — isso é assunto da consultoria.
 - Se o lead era desqualificado, avalie se o SDR identificou, comunicou com respeito e encerrou bem — e marque como NA as etapas que deixaram de existir por causa disso.
 - Turnos de fala do SDR nesta call: ` + numTurnos + `
