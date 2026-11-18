@@ -68,12 +68,27 @@
 <body>
 <div id="app">
   <div class="title">Histórico de Simulações — SDR</div>
-  <div class="sub">Aderência ao roteiro de agendamento (0–5 por etapa) e qualificação BANT. Os números medem quais etapas foram cumpridas — a qualidade da execução está no feedback de cada simulação.</div>
+  <div class="sub">Aderência ao Script de Ligação 3C, nota 0–5 por etapa. Os números medem quais etapas foram cumpridas — a qualidade da execução está no feedback de cada simulação.</div>
 
   <div class="filters">
     <select id="sdr-filter" onchange="applyFilter()">
       <option value="">Todos os SDRs</option>
     </select>
+    <select id="nivel-filter" onchange="applyFilter()">
+      <option value="">Todos os níveis</option>
+      <option value="facil">Fácil</option>
+      <option value="medio">Médio</option>
+      <option value="dificil">Difícil</option>
+    </select>
+    <select id="persona-filter" onchange="applyFilter()">
+      <option value="">Todas as personas</option>
+    </select>
+    <select id="periodo-filter" onchange="applyFilter()">
+      <option value="">Todo o período</option>
+      <option value="7">Últimos 7 dias</option>
+      <option value="30">Últimos 30 dias</option>
+    </select>
+    <button onclick="limparFiltros()">✕ Ver todas</button>
     <button onclick="load()">↻ Atualizar</button>
   </div>
 
@@ -210,17 +225,46 @@ async function load() {
 }
 
 function populateSdrFilter() {
-  const sel = document.getElementById("sdr-filter");
-  const current = sel.value;
-  const names = [...new Set(allResults.map(r => r.sdr_name))].sort();
-  sel.innerHTML = '<option value="">Todos os SDRs</option>' +
-    names.map(n => `<option value="${n}">${n}</option>`).join("");
-  sel.value = current;
+  const preencher = (id, campo, rotuloTodos) => {
+    const sel = document.getElementById(id);
+    const atual = sel.value;
+    const nomes = [...new Set(allResults.map(r => r[campo]).filter(Boolean))].sort();
+    sel.innerHTML = `<option value="">${rotuloTodos}</option>` +
+      nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+    sel.value = atual;
+  };
+  preencher("sdr-filter", "sdr_name", "Todos os SDRs");
+  preencher("persona-filter", "persona_name", "Todas as personas");
+}
+
+const FILTROS = ["sdr-filter", "nivel-filter", "persona-filter", "periodo-filter"];
+const valor = id => document.getElementById(id).value;
+
+function limparFiltros() {
+  for (const id of FILTROS) document.getElementById(id).value = "";
+  applyFilter();
 }
 
 function applyFilter() {
-  const filter = document.getElementById("sdr-filter").value;
-  const rows = filter ? allResults.filter(r => r.sdr_name === filter) : allResults;
+  const sdr = valor("sdr-filter"), nivel = valor("nivel-filter");
+  const persona = valor("persona-filter"), dias = Number(valor("periodo-filter"));
+  // created_at vem em UTC; o corte por dias é sobre o instante, não sobre a data,
+  // então não precisa converter para BRT aqui.
+  const limite = dias ? Date.now() - dias * 864e5 : null;
+
+  const rows = allResults.filter(r =>
+    (!sdr || r.sdr_name === sdr) &&
+    (!nivel || r.level === nivel) &&
+    (!persona || r.persona_name === persona) &&
+    (!limite || new Date(String(r.created_at).replace(" ", "T") + "Z").getTime() >= limite)
+  );
+
+  const ativos = FILTROS.filter(id => valor(id)).length;
+  const btn = document.querySelector('button[onclick="limparFiltros()"]');
+  btn.textContent = ativos ? `✕ Ver todas (${ativos} filtro${ativos > 1 ? "s" : ""})` : "✕ Ver todas";
+  btn.style.borderColor = ativos ? "#f5c518" : "";
+  btn.style.color = ativos ? "#f5c518" : "";
+
   render(rows);
 }
 
