@@ -158,11 +158,10 @@ const esc = s => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // As etapas do Script de Ligação 3C, na ordem e com os pesos que a gestão cobra.
-// Agrupa SDR ignorando acento e maiúscula: normalizar na gravação resolve daqui
-// pra frente, mas "Vinicius" e "Vinícius" continuam sendo a mesma pessoa e o
-// painel não pode separá-los em duas médias.
-const chaveSdr = n => String(n || "").trim()
-  .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+// Agrupa SDR ignorando SÓ maiúscula/minúscula. O acento NÃO pode ser ignorado:
+// "Vinicius" e "Vinícius" são duas pessoas diferentes no time, e juntá-las
+// misturaria a nota de uma na média da outra.
+const chaveSdr = n => String(n || "").trim().toLowerCase();
 
 const ETAPAS = ["abertura", "validar", "mapear", "consultoria", "objecoes", "proximo", "compromisso"];
 const ETAPA_ROTULO = {
